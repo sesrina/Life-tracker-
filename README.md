@@ -32,6 +32,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Year in Pixels**: your whole year of moods as coloured squares in the Journal
 - **Smart typing**: type "Call Mum Friday 3pm" or "Bins every Thursday" and the date, time and repeat fill in for you
 - **Repeating to-dos**: every day, weekdays, every week or every month. Tick one off and the next one appears
+- **Meal planner**: Week → Meals to plan dinner (or all meals) for each day, with favourites, quick picks and a shopping list that ingredients go straight onto. Tonight's dinner shows on Today
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

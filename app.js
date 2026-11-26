@@ -98,6 +98,10 @@
       plants: Array.isArray(d.plants) ? d.plants.filter((p) => p && p.id && typeof p.name === 'string') : [],
       habits: Array.isArray(d.habits) ? d.habits.filter((h) => h && h.id && typeof h.title === 'string') : [],
       habitLog: d.habitLog && typeof d.habitLog === 'object' && !Array.isArray(d.habitLog) ? d.habitLog : {},
+      meals: d.meals && typeof d.meals === 'object' && !Array.isArray(d.meals) ? d.meals : {},
+      mealFavs: Array.isArray(d.mealFavs) ? d.mealFavs.filter((x) => typeof x === 'string') : [],
+      mealShow: d.mealShow === 'all' ? 'all' : 'dinner',
+      shopping: Array.isArray(d.shopping) ? d.shopping.filter((x) => x && x.id && typeof x.title === 'string') : [],
       plant: {
         name: d.plant && typeof d.plant.name === 'string' && d.plant.name ? d.plant.name : 'Pip',
         xp: d.plant && Number.isFinite(d.plant.xp) ? d.plant.xp : 0,
@@ -594,13 +598,14 @@
     $('#today-greeting').textContent = nm ? greeting.replace(/ (\S+)$/, `, ${nm} $1`) : greeting;
     // One fact per line, so it's quick to scan
     let lines;
-    if (!events.length && !todos.length) lines = ['Nothing planned yet. Enjoy the calm 🍵'];
+    if (!events.length && !todos.length && !mealDay(key).d) lines = ['Nothing planned yet. Enjoy the calm 🍵'];
     else {
       lines = [
         `🗓️ ${plural(events.length, 'event')}`,
         todos.length ? `✅ ${done} of ${todos.length} to-dos done${done === todos.length ? ' 🎉' : ''}` : '✅ No to-dos',
       ];
     }
+    if (mealDay(key).d) lines.push(`🍝 Dinner: ${mealDay(key).d}`);
     $('#today-summary').innerHTML = lines.map((l) => `<span>${esc(l)}</span>`).join('');
     $('#today-progress').style.width = todos.length ? `${Math.round((done / todos.length) * 100)}%` : '0%';
 
@@ -757,14 +762,16 @@
   }
 
   function renderWeek() {
-    $('#week-mode').hidden = weekMode === 'month';
+    $('#week-mode').hidden = weekMode !== 'week';
     $('#month-mode').hidden = weekMode !== 'month';
+    $('#meals-mode').hidden = weekMode !== 'meals';
     $$('.week-seg [data-wmode]').forEach((b) => {
       const on = b.dataset.wmode === weekMode;
       b.classList.toggle('is-active', on);
       b.setAttribute('aria-selected', on ? 'true' : 'false');
     });
     if (weekMode === 'month') { renderMonthView(); return; }
+    if (weekMode === 'meals') { renderMeals(); return; }
     const end = addDays(weekStart, 6);
     const sameMonth = weekStart.getMonth() === end.getMonth();
     const startLabel = weekStart.toLocaleDateString([], sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
@@ -799,6 +806,7 @@
         </div>
         <ul class="list">${evs.length ? evs.join('') : (tds.length ? '' : emptyHTML('Free day 🌸'))}</ul>
         ${tds.length ? `<ul class="list">${tds.map(todoHTML).join('')}</ul>` : ''}
+        ${mealDay(key).d ? `<ul class="list"><li class="garden-week-item meal-week-item">🍝 ${esc(mealDay(key).d)}</li></ul>` : ''}
         ${plantsDueOn(key).length ? `<ul class="list"><li class="garden-week-item">💧 Water ${esc(plantsDueOn(key).map((pl) => pl.name).join(', '))}</li></ul>` : ''}
       </section>`;
     }
@@ -812,7 +820,7 @@
     const done = everything.filter((t) => t.done);
     $('#count-active').textContent = active.length ? `(${active.length})` : '';
     $('#count-done').textContent = done.length ? `(${done.length})` : '';
-    $$('.chip').forEach((c) => {
+    $$('.chip[data-filter]').forEach((c) => {
       const on = c.dataset.filter === todoFilter;
       c.classList.toggle('is-active', on);
       c.setAttribute('aria-selected', on ? 'true' : 'false');
@@ -1161,7 +1169,7 @@
     showToast(q.due ? `Added for ${relDay(q.due)}${q.time ? `, ${fmtTime(q.time)}` : ''} 🌷` : 'To-do added 🌷');
   });
 
-  $$('.chip').forEach((chip) => chip.addEventListener('click', () => { todoFilter = chip.dataset.filter; render(); }));
+  $$('.chip[data-filter]').forEach((chip) => chip.addEventListener('click', () => { todoFilter = chip.dataset.filter; render(); }));
 
   $('#clear-done').addEventListener('click', () => {
     const count = state.todos.filter((t) => t.done).length;
@@ -1176,7 +1184,7 @@
   let lastDay = todayKey();
   function refreshIfNeeded() {
     if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open || addSheet.open || tourEl.open
-      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open || habitSheet.open) return;
+      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open || habitSheet.open || mealSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1507,6 +1515,11 @@
 
   /* ================= Learn: "Why?" explanations & daily brain snacks ================= */
   const WHY = {
+    meals: {
+      t: '🍽️ Why plan meals?',
+      b: 'Deciding what to eat at 6 pm when you are tired is hard, which is when takeaways win. In a study of about 40,000 adults, people who planned their meals ahead ate a healthier, more varied diet and were less likely to be obese. Planning a few dinners, plus a shopping list, also means fewer extra trips to the shop.',
+      s: 'Ducrot et al., 2017 (International Journal of Behavioral Nutrition and Physical Activity)',
+    },
     habits: {
       t: '✨ Why track habits?',
       b: 'Ticking a box each day keeps your progress visible, and that helps. A big review of 138 studies found that monitoring progress made people more likely to reach their goals, especially when the progress was actually recorded. Start with 2 to 4 small habits. Missing one day is fine; just try not to miss twice.',
@@ -1993,6 +2006,7 @@
     else if (what === 'plant') openGardenEdit(null);
     else if (what === 'plants') openGardenManager();
     else if (what === 'habits') openHabitSheet(!state.habits.length);
+    else if (what === 'meals') { weekMode = 'meals'; weekStart = startOfWeek(new Date()); switchView('week'); }
   });
 
   /* ================= Reading comfort & read aloud ================= */
@@ -2684,6 +2698,144 @@
     const d = q ? describeParsed(q) : '';
     $('#quick-tip').textContent = d ? `${d}\n✍️ ${q.title}` : QUICK_TIP;
   });
+
+  /* ================= Meal planner & shopping list ================= */
+  const MEAL_SLOTS = { b: ['🍳', 'Breakfast'], l: ['🥪', 'Lunch'], d: ['🍝', 'Dinner'] };
+  const mealDay = (key) => (state.meals[key] && typeof state.meals[key] === 'object' ? state.meals[key] : {});
+  const mealSheet = $('#meal-sheet');
+  let editingMeal = null; // { key, slot }
+
+  function renderMeals() {
+    const end = addDays(weekStart, 6);
+    $('#meals-range').textContent = `${weekStart.toLocaleDateString([], { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString([], { day: 'numeric', month: 'short' })}`;
+    $('#meals-today').hidden = dateKey(weekStart) === dateKey(startOfWeek(new Date()));
+    TITLES.week = 'Meals';
+    $$('#meal-show [data-mshow]').forEach((b) => b.classList.toggle('is-active', b.dataset.mshow === state.mealShow));
+    const slots = state.mealShow === 'all' ? ['b', 'l', 'd'] : ['d'];
+    const tk = todayKey();
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      const key = dateKey(day);
+      const m = mealDay(key);
+      const rel = relDay(key);
+      const label = ['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? `${rel}, ${day.toLocaleDateString([], { day: 'numeric', month: 'short' })}` : day.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'short' });
+      html += `<section class="meal-day${key === tk ? ' is-today' : ''}"><h3>${esc(label)}</h3>${slots.map((s) => {
+        const [emoji, name] = MEAL_SLOTS[s];
+        const val = typeof m[s] === 'string' ? m[s] : '';
+        return `<button class="meal-row${val ? ' set' : ''}" type="button" data-meal="${key}|${s}" aria-label="${esc(name)} on ${esc(label)}: ${esc(val || 'not planned')}">
+          <span class="meal-emoji" aria-hidden="true">${emoji}</span>
+          <span class="meal-text"><small>${name}</small>${val ? esc(val) : '<span class="empty-txt">Tap to plan</span>'}</span></button>`;
+      }).join('')}</section>`;
+    }
+    $('#meal-days').innerHTML = html;
+    renderShopping();
+  }
+
+  function renderShopping() {
+    const items = state.shopping;
+    $('#shop-list').innerHTML = items.length
+      ? items.map((it) => `<li><button class="routine-step${it.done ? ' done' : ''}" type="button" data-shop="${esc(it.id)}" aria-pressed="${it.done}">
+          <span class="tick" aria-hidden="true">✓</span><span>${esc(it.title)}</span></button></li>`).join('')
+      : '<li class="empty">Your shopping list is empty 🛒</li>';
+    $('#shop-clear').hidden = !items.some((it) => it.done);
+  }
+
+  function addShopping(lines) {
+    let added = 0;
+    lines.map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).forEach((title) => {
+      if (state.shopping.some((it) => !it.done && it.title.toLowerCase() === title.toLowerCase())) return;
+      state.shopping.push({ id: uid(), title: title.slice(0, 80), done: false });
+      added++;
+    });
+    return added;
+  }
+
+  function mealSuggestions() {
+    const recent = [];
+    Object.keys(state.meals).sort().reverse().slice(0, 40).forEach((k) => {
+      Object.values(mealDay(k)).forEach((v) => { if (typeof v === 'string' && v && !recent.includes(v)) recent.push(v); });
+    });
+    const favs = state.mealFavs.filter((f) => typeof f === 'string');
+    return [...favs.map((f) => ({ t: f, fav: true })), ...recent.filter((r) => !favs.includes(r)).map((r) => ({ t: r, fav: false }))].slice(0, 14);
+  }
+
+  function openMeal(key, slot) {
+    editingMeal = { key, slot };
+    const [emoji, name] = MEAL_SLOTS[slot];
+    const rel = relDay(key);
+    $('#meal-title').textContent = `${emoji} ${name}\n${['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? rel : fmtDate(key, { weekday: 'long', day: 'numeric', month: 'short' })}`;
+    const val = mealDay(key)[slot] || '';
+    $('#meal-text').value = val;
+    $('#meal-fav').checked = !!val && state.mealFavs.includes(val);
+    $('#meal-ingredients').value = '';
+    $('#meal-clear').hidden = !val;
+    const sugg = mealSuggestions();
+    $('#meal-favs-wrap').hidden = !sugg.length;
+    $('#meal-favs').innerHTML = sugg.map((s) => `<button class="chip" type="button" data-meal-pick="${esc(s.t)}">${s.fav ? '⭐ ' : ''}${esc(s.t)}</button>`).join('');
+    mealSheet.showModal();
+  }
+
+  $('#meal-favs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-meal-pick]');
+    if (!b) return;
+    $('#meal-text').value = b.dataset.mealPick;
+    $('#meal-fav').checked = state.mealFavs.includes(b.dataset.mealPick);
+  });
+  $('#meal-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!editingMeal) return;
+    const { key, slot } = editingMeal;
+    const text = $('#meal-text').value.trim().slice(0, 80);
+    const day = { ...mealDay(key) };
+    if (text) day[slot] = text; else delete day[slot];
+    if (Object.keys(day).length) state.meals[key] = day; else delete state.meals[key];
+    if (text && $('#meal-fav').checked && !state.mealFavs.includes(text)) state.mealFavs = [text, ...state.mealFavs].slice(0, 30);
+    if (text && !$('#meal-fav').checked) state.mealFavs = state.mealFavs.filter((f) => f !== text);
+    const added = addShopping($('#meal-ingredients').value.split('\n'));
+    // keep about a year of meal history
+    const cutoff = dateKey(addDays(new Date(), -370));
+    Object.keys(state.meals).forEach((k) => { if (k < cutoff) delete state.meals[k]; });
+    save();
+    mealSheet.close();
+    render();
+    showToast(added ? `Saved, and ${plural(added, 'item')} added to your shopping list 🛒` : text ? 'Meal planned 🍽️' : 'Meal cleared');
+  });
+  $('#meal-clear').addEventListener('click', () => { $('#meal-text').value = ''; $('#meal-form').requestSubmit(); });
+  $('#meal-cancel').addEventListener('click', () => mealSheet.close());
+  mealSheet.addEventListener('click', (e) => { if (e.target === mealSheet) mealSheet.close(); });
+  mealSheet.addEventListener('close', () => { editingMeal = null; });
+
+  $('#meals-mode').addEventListener('click', (e) => {
+    const m = e.target.closest('[data-meal]');
+    if (m) { const [key, slot] = m.dataset.meal.split('|'); openMeal(key, slot); return; }
+    const sh = e.target.closest('[data-shop]');
+    if (sh) {
+      const it = state.shopping.find((x) => x.id === sh.dataset.shop);
+      if (it) { it.done = !it.done; save(); renderShopping(); if (it.done) celebrate(false); }
+      return;
+    }
+    const ms = e.target.closest('[data-mshow]');
+    if (ms) { state.mealShow = ms.dataset.mshow; save(); render(); }
+  });
+  $('#shop-add').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('#shop-text').value.trim();
+    if (!v) return;
+    addShopping(v.split(/,|\n/));
+    $('#shop-text').value = '';
+    save();
+    renderShopping();
+  });
+  $('#shop-clear').addEventListener('click', () => {
+    state.shopping = state.shopping.filter((it) => !it.done);
+    save();
+    renderShopping();
+    showToast('Ticked items cleared 🛒');
+  });
+  $('#meals-prev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); render(); });
+  $('#meals-next').addEventListener('click', () => { weekStart = addDays(weekStart, 7); render(); });
+  $('#meals-today').addEventListener('click', () => { weekStart = startOfWeek(new Date()); render(); });
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };

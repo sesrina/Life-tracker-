@@ -96,6 +96,7 @@
         <div class="seg week-seg" role="tablist" aria-label="Calendar view">
           <button type="button" role="tab" data-wmode="week" class="is-active">Week</button>
           <button type="button" role="tab" data-wmode="month">Month</button>
+          <button type="button" role="tab" data-wmode="meals">Meals</button>
         </div>
         <div id="week-mode">
           <div class="week-nav">
@@ -108,6 +109,31 @@
           </div>
           <div id="week-days"></div>
           <button class="btn ghost wide print-btn" type="button" id="print-week">🖨️ Print this week</button>
+        </div>
+        <div id="meals-mode" hidden>
+          <div class="week-nav">
+            <button class="icon-btn" type="button" id="meals-prev" aria-label="Previous week">‹</button>
+            <div class="week-label">
+              <span id="meals-range"></span>
+              <button class="link-btn" type="button" id="meals-today">Jump to this week</button>
+            </div>
+            <button class="icon-btn" type="button" id="meals-next" aria-label="Next week">›</button>
+          </div>
+          <div class="section-head">
+            <h2>🍽️ Meal plan <button class="why-btn" type="button" data-why="meals" aria-label="Why this helps">💡</button></h2>
+          </div>
+          <div class="chips" id="meal-show">
+            <button class="chip" type="button" data-mshow="dinner">Dinner only</button>
+            <button class="chip" type="button" data-mshow="all">All meals</button>
+          </div>
+          <div id="meal-days"></div>
+          <div class="section-head"><h2>🛒 Shopping list</h2></div>
+          <form class="quick-add" id="shop-add" autocomplete="off">
+            <input type="text" id="shop-text" placeholder="Add an item…" maxlength="120" aria-label="Add a shopping item">
+            <button class="btn primary" type="submit">Add</button>
+          </form>
+          <ul class="routine-list shop-list" id="shop-list"></ul>
+          <button class="btn ghost wide" type="button" id="shop-clear" hidden>Clear ticked items</button>
         </div>
         <div id="month-mode" hidden>
           <div class="week-nav">
@@ -292,6 +318,7 @@
         <button class="add-tile" type="button" data-addwhat="journal"><b aria-hidden="true">📓</b>Journal</button>
         <button class="add-tile" type="button" data-addwhat="goal"><b aria-hidden="true">🎯</b>Goal</button>
         <button class="add-tile" type="button" data-addwhat="period"><b aria-hidden="true">🩸</b>Period started</button>
+        <button class="add-tile" type="button" data-addwhat="meals"><b aria-hidden="true">🍽️</b>Meals<small>plan &amp; shop</small></button>
         <button class="add-tile" type="button" data-addwhat="habits"><b aria-hidden="true">✨</b>Habits<small>daily tracker</small></button>
         <button class="add-tile" type="button" data-addwhat="plant"><b aria-hidden="true">🪴</b>Plant</button>
         <button class="add-tile" type="button" data-addwhat="plants"><b aria-hidden="true">💧</b>My plants<small>water &amp; manage</small></button>
@@ -643,6 +670,35 @@ It never dies, it just waits for you 💚</p>
       <button class="btn ghost wide" type="button" id="habit-edit-btn">✏️ Edit habits</button>
       <button class="btn ghost wide" type="button" id="habit-done">Done</button>
     </div>
+  </dialog>
+
+  <!-- Meal editor -->
+  <dialog id="meal-sheet" class="sheet" aria-labelledby="meal-title">
+    <form id="meal-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="meal-title">Dinner</h2>
+      <label class="field">
+        <span>What are you having?</span>
+        <input type="text" id="meal-text" maxlength="80" placeholder="Creamy chicken pasta">
+      </label>
+      <div class="field" id="meal-favs-wrap">
+        <span>Quick pick</span>
+        <div class="chips" id="meal-favs"></div>
+      </div>
+      <label class="toggle-row g-toggle">
+        <input type="checkbox" id="meal-fav">
+        <span>⭐ Save as a favourite</span>
+      </label>
+      <label class="field">
+        <span>🛒 Ingredients to buy (optional, one per line)</span>
+        <textarea id="meal-ingredients" rows="4" placeholder="Chicken&#10;Pasta&#10;Cream"></textarea>
+      </label>
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="meal-clear">Clear</button>
+        <button class="btn ghost" type="button" id="meal-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- Journal entry -->
