@@ -561,6 +561,19 @@ It never dies, it just waits for you 💚</p>
         </label>
       </div>
       <p class="hint" id="garden-tip"></p>
+      <div class="field">
+        <span>📷 Photo</span>
+        <div class="photo-row">
+          <span class="garden-photo big" id="garden-photo-preview" aria-hidden="true"></span>
+          <div class="photo-btns">
+            <label class="btn ghost photo-pick">
+              <input type="file" id="garden-photo-input" accept="image/*" hidden>
+              <span id="garden-photo-label">Add photo</span>
+            </label>
+            <button class="link-btn" type="button" id="garden-photo-remove" hidden>Remove photo</button>
+          </div>
+        </div>
+      </div>
       <label class="field" id="garden-remind-field" hidden>
         <span>🔔 Remind me at</span>
         <input type="time" id="garden-remind">

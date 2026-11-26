@@ -26,7 +26,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Easy to read**: no all-caps labels, 1.5 line spacing, a soft off-white background, plus ⚙️ → Reading comfort for bigger text, extra letter spacing, a choice of clear fonts (Nunito, Verdana, Atkinson Hyperlegible) and 🔊 read-aloud on tips
 - **Six looks** in ⚙️ → Look: 🍒 Cherry (cream, cherry, wine and gold with a leopard trim), 🌸 Soft pink, 🤍 Clean girl, 🍵 Matcha, 🦋 Y2K and 🖤 Midnight. All are contrast-checked for easy reading
 - **One fact per line**: details are stacked instead of squeezed together with dots
-- **Plant care**: add your plants (tomato, basil, rosemary, string of hearts, succulents, pothos, monstera, snake plant, peace lily, fern, orchid and more), each with its own watering schedule and care tip. Outdoor pots in sun or wind get a shorter schedule. Today shows what needs water, Week shows watering days, and you can get a Google Calendar notification on watering days
+- **Plant care**: add your plants (tomato, basil, rosemary, string of hearts, succulents, pothos, monstera, snake plant, peace lily, fern, orchid and more), each with its own watering schedule and care tip. Outdoor pots in sun or wind get a shorter schedule. Today shows what needs water, Week shows watering days, and you can get a Google Calendar notification on watering days. Add your own photo of each plant (camera or photo library); photos are shrunk to save space and included in backups
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

@@ -108,7 +108,9 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(state));
     } catch (err) {
-      showToast("Couldn't save — is private browsing on?");
+      showToast(err && err.name === 'QuotaExceededError'
+        ? "Storage is full. Try removing a few plant photos."
+        : "Couldn't save. Is private browsing on?");
     }
   }
 
@@ -2066,6 +2068,34 @@
   const daysUntilWater = (p) => diffDays(todayKey(), nextDue(p));
   const suggestedEvery = (type, outdoor) => Math.max(1, Math.round((PLANT_TYPES[type] || PLANT_TYPES.other).every * (outdoor ? 0.7 : 1)));
 
+  // Your own photo if there is one, otherwise the plant type's emoji
+  function plantPic(p, t, big) {
+    const ok = typeof p.photo === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.photo);
+    if (!ok) return `<span class="garden-photo${big ? ' big' : ''}" aria-hidden="true">${t.e}</span>`;
+    return `<span class="garden-photo${big ? ' big' : ''}" role="img" aria-label="Photo of ${esc(p.name)}" style="background-image:url('${p.photo}')"><span class="badge" aria-hidden="true">${t.e}</span></span>`;
+  }
+
+  // Shrink a photo to a small square so it doesn't fill up the phone's storage
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const size = 320;
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+      img.src = url;
+    });
+  }
+
   function waterStatus(p) {
     const d = daysUntilWater(p);
     if (d < 0) return `Overdue by ${plural(-d, 'day')}`;
@@ -2078,7 +2108,7 @@
     const t = ptype(p);
     const due = daysUntilWater(p) <= 0;
     return `<li class="garden-row${due ? ' due' : ''}">
-      <span class="garden-emoji" aria-hidden="true">${t.e}</span>
+      ${plantPic(p, t)}
       <span class="garden-text"><b>${esc(p.name)}</b><small>${esc([p.name.toLowerCase() === t.n.toLowerCase() ? '' : t.n, p.outdoor ? 'Outdoors' : ''].filter(Boolean).join(', '))}${p.name.toLowerCase() === t.n.toLowerCase() && !p.outdoor ? '' : '\n'}💧 ${esc(waterStatus(p))}</small></span>
       <span class="garden-btns">
         ${due || manager ? `<button class="btn primary garden-water" type="button" data-water="${esc(p.id)}">💧 Watered</button>` : ''}
@@ -2165,11 +2195,33 @@
       ? 'Optional. You\'ll get a Google Calendar notification on watering days.'
       : '🔔 Want watering notifications? Connect Google Calendar in ⚙️ Settings → Extras.';
     $('#garden-delete').hidden = !p;
+    editingPhoto = p && p.photo ? p.photo : '';
+    updatePhotoPreview();
     updateGardenTip();
     gardenEdit.showModal();
   }
 
-  $('#garden-type').addEventListener('change', () => { everyTouched = false; updateGardenTip(); });
+  let editingPhoto = '';
+  function updatePhotoPreview() {
+    const t = PLANT_TYPES[$('#garden-type').value] || PLANT_TYPES.other;
+    $('#garden-photo-preview').outerHTML = plantPic({ name: $('#garden-name').value || t.n, photo: editingPhoto }, t, true)
+      .replace('class="garden-photo', 'id="garden-photo-preview" class="garden-photo');
+    $('#garden-photo-label').textContent = editingPhoto ? 'Change photo' : 'Add photo';
+    $('#garden-photo-remove').hidden = !editingPhoto;
+  }
+  $('#garden-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      editingPhoto = await shrinkPhoto(file);
+      updatePhotoPreview();
+    } catch (err) {
+      showToast("Couldn't open that photo. Try another one?");
+    }
+  });
+  $('#garden-photo-remove').addEventListener('click', () => { editingPhoto = ''; updatePhotoPreview(); });
+  $('#garden-type').addEventListener('change', () => { everyTouched = false; updateGardenTip(); updatePhotoPreview(); });
   $('#garden-outdoor').addEventListener('change', () => { everyTouched = false; updateGardenTip(); });
   $('#garden-every').addEventListener('input', () => { everyTouched = true; });
   $('#garden-cancel').addEventListener('click', () => gardenEdit.close());
@@ -2188,6 +2240,7 @@
       every: Math.min(60, Math.max(1, Math.round(Number($('#garden-every').value) || PLANT_TYPES[type].every))),
       last: /^\d{4}-\d{2}-\d{2}$/.test($('#garden-last').value) ? $('#garden-last').value : todayKey(),
       remind: state.google.connected && /^\d\d:\d\d$/.test($('#garden-remind').value) ? $('#garden-remind').value : '',
+      photo: editingPhoto,
       gRemindDirty: true,
     };
     const old = editingPlant ? state.plants.find((x) => x.id === editingPlant) : null;
