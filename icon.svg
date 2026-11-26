@@ -1,8 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#fde8ef"/>
-  <rect x="96" y="128" width="320" height="288" rx="48" fill="#ffffff" stroke="#e8789f" stroke-width="20"/>
-  <rect x="96" y="128" width="320" height="84" rx="40" fill="#f9cfdc"/>
-  <rect x="160" y="96" width="24" height="72" rx="12" fill="#e8789f"/>
-  <rect x="328" y="96" width="24" height="72" rx="12" fill="#e8789f"/>
-  <path d="M190 312l46 46 90-96" fill="none" stroke="#e8789f" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="512" height="512" rx="112" fill="#3b0a14"/>
+  <rect x="96" y="128" width="320" height="288" rx="48" fill="#fffaf6" stroke="#d9b26a" stroke-width="16"/>
+  <rect x="96" y="128" width="320" height="84" rx="40" fill="#a3122a"/>
+  <rect x="160" y="96" width="24" height="72" rx="12" fill="#d9b26a"/>
+  <rect x="328" y="96" width="24" height="72" rx="12" fill="#d9b26a"/>
+  <path d="M256 250c10-14 26-20 40-16" fill="none" stroke="#3b6b2a" stroke-width="10" stroke-linecap="round"/>
+  <path d="M256 250c-6 22-24 38-38 46M256 250c4 24 20 40 34 48" fill="none" stroke="#3b6b2a" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="212" cy="324" r="36" fill="#a3122a"/>
+  <circle cx="298" cy="330" r="36" fill="#a3122a"/>
+  <circle cx="200" cy="312" r="9" fill="#ffffff" opacity="0.6"/>
+  <circle cx="286" cy="318" r="9" fill="#ffffff" opacity="0.6"/>
 </svg>

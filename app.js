@@ -80,6 +80,7 @@
         salt: typeof lock.salt === 'string' ? lock.salt : '',
       },
       backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
+      look: d.look === 'soft' ? 'soft' : 'cherry',
       reading: {
         size: d.reading && ['m', 'l', 'xl'].includes(d.reading.size) ? d.reading.size : 'm',
         font: d.reading && ['nunito', 'verdana', 'atkinson'].includes(d.reading.font) ? d.reading.font : 'nunito',
@@ -1237,8 +1238,11 @@
     const layer = document.createElement('div');
     layer.className = 'confetti';
     layer.setAttribute('aria-hidden', 'true');
-    const colours = ['var(--ch-mood)', 'var(--ch-follicular)', 'var(--ch-ovulation)', 'var(--ch-luteal)', 'var(--mint)', 'var(--peach)'];
-    const emojis = ['✨', '💖', '🌸', '⭐', '🎉'];
+    const cherry = state.look !== 'soft';
+    const colours = cherry
+      ? ['var(--accent)', 'var(--gold, #b88a3b)', '#2a1418', 'var(--pink)', '#c9c9d1', 'var(--butter)']
+      : ['var(--ch-mood)', 'var(--ch-follicular)', 'var(--ch-ovulation)', 'var(--ch-luteal)', 'var(--mint)', 'var(--peach)'];
+    const emojis = cherry ? ['🍒', '💋', '✨', '🎀', '💎'] : ['✨', '💖', '🌸', '⭐', '🎉'];
     const n = big ? 64 : 26;
     for (let i = 0; i < n; i++) {
       const s = document.createElement('span');
@@ -1853,7 +1857,7 @@
   /* ================= Friendly: welcome tour & one add button ================= */
   const TOUR = [
     { e: '👋', t: 'Welcome to your planner', x: 'Your day, goals, journal and cycle in one place. Everything is saved privately on this phone.', name: true },
-    { e: '🌼', t: 'Today', x: 'See what\'s next, your routine and your to-dos. Tick things off to grow your plant.' },
+    { e: '🍒', t: 'Today', x: 'See what\'s next, your routine and your to-dos. Tick things off to grow your plant.' },
     { e: '➕', t: 'Add anything with +', x: 'The pink + button at the bottom right adds a to-do, an event, a journal entry or a goal. Or use Brain dump to get everything out of your head at once.' },
     { e: '🎯', t: 'Plan ahead', x: 'Week shows the next 7 days. Goals breaks bigger plans into small steps.' },
     { e: '💜', t: 'Me', x: 'Your journal and cycle. You can lock them with a PIN in ⚙️ Settings, and make text bigger or easier to read there too. Tap 💡 to see why a feature helps.' },
@@ -1950,6 +1954,23 @@
   $('#reading-font').addEventListener('click', (e) => { const b = e.target.closest('[data-font]'); if (!b) return; state.reading.font = b.dataset.font; save(); applyReading(); });
   $('#reading-spacing').addEventListener('change', (e) => { state.reading.spacing = e.target.checked; save(); applyReading(); });
   applyReading();
+
+  // Look: cherry (default) or soft pink
+  function applyLook() {
+    const cherry = state.look !== 'soft';
+    document.documentElement.classList.toggle('theme-cherry', cherry);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', cherry ? '#f7f1ec' : '#fde8ef');
+    $$('#look-pick [data-look]').forEach((b) => b.classList.toggle('is-active', b.dataset.look === state.look));
+  }
+  $('#look-pick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-look]');
+    if (!b) return;
+    state.look = b.dataset.look;
+    save();
+    applyLook();
+  });
+  applyLook();
 
   function speak(text) {
     if (!('speechSynthesis' in window)) { showToast('Read aloud isn\'t available on this browser'); return; }

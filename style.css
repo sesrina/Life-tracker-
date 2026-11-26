@@ -1137,13 +1137,122 @@ a.item-main { color: inherit; text-decoration: none; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* ================= Cherry look (default): cream, cherry, wine and gold ================= */
+:root.theme-cherry {
+  --bg: #f7f1ec;
+  --card: #fffaf6;
+  --ink: #2a1418;
+  --muted: #7b5a60;
+  --line: #ecdcd8;
+  --accent: #a3122a;
+  --accent-ink: #ffffff;
+  --accent-soft: #f7e1e3;
+  --danger: #a3122a;
+  --danger-soft: #f7e1e3;
+  --shadow: 0 6px 20px rgba(90, 20, 35, 0.10);
+  --pink: #f4c7cf;
+  --lavender: #e4d2da;
+  --mint: #ebe1cd;
+  --peach: #f3d1bd;
+  --sky: #dcdbe2;
+  --butter: #f0dfae;
+  --rose: #b3203f;
+  --rose-soft: #f7dde2;
+  --fertile: #efe0b4;
+  --gold: #b88a3b;
+  --wine: #3b0a14;
+  --ch-mood: #a3122a;
+}
+@media (prefers-color-scheme: dark) {
+  :root.theme-cherry {
+    --bg: #140a0c;
+    --card: #22131a;
+    --ink: #f6e9e6;
+    --muted: #c2a4a8;
+    --line: #3a2229;
+    --accent: #e04a63;
+    --accent-ink: #1a0a0d;
+    --accent-soft: #3d1a22;
+    --danger: #ef6a80;
+    --danger-soft: #3d1a22;
+    --shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    --pink: #5c2332;
+    --lavender: #4a2b3c;
+    --mint: #4a3d26;
+    --peach: #5a3424;
+    --sky: #3a3a44;
+    --butter: #5a4a20;
+    --rose: #c9334f;
+    --rose-soft: #3d1a22;
+    --fertile: #4a3d26;
+    --gold: #d9b26a;
+    --wine: #0d0507;
+    --ch-mood: #e0789c;
+  }
+}
+
+/* Magazine-style headings (body text stays in the easy-to-read font) */
+.theme-cherry:not(.font-verdana):not(.font-atkinson) h1,
+.theme-cherry:not(.font-verdana):not(.font-atkinson) .hello,
+.theme-cherry:not(.font-verdana):not(.font-atkinson) .focus-title,
+.theme-cherry:not(.font-verdana):not(.font-atkinson) #sheet-title,
+.theme-cherry:not(.font-verdana):not(.font-atkinson) .goal-head h3 {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.theme-cherry h1 { font-size: calc(36px * var(--fs, 1)); }
+
+/* The statement card: wine to cherry with a leopard trim */
+.theme-cherry .hello-card {
+  position: relative;
+  overflow: hidden;
+  padding-top: 30px;
+  background: linear-gradient(140deg, var(--wine), #7a0f22 60%, #a3122a);
+  color: #fbefe9;
+}
+.theme-cherry .hello-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='16' viewBox='0 0 56 16'%3E%3Crect width='56' height='16' fill='%23d9ae74'/%3E%3Cg fill='%238a5a2b'%3E%3Cellipse cx='9' cy='8' rx='3.2' ry='2.4'/%3E%3Cellipse cx='30' cy='5' rx='3' ry='2.2'/%3E%3Cellipse cx='46' cy='10' rx='3.2' ry='2.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%2324120c' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M5 6.5a4.5 3.8 0 0 1 6-2.6M13.5 9a4.5 3.8 0 0 1-5.5 3.3'/%3E%3Cpath d='M26 3.8a4.3 3.6 0 0 1 6.5-0.6M34 6.5a4.3 3.6 0 0 1-6 2.6'/%3E%3Cpath d='M42 9a4.5 3.8 0 0 1 5-3.4M50.5 11a4.5 3.8 0 0 1-6.5 2.2'/%3E%3C/g%3E%3Cg fill='%2324120c'%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3Ccircle cx='21' cy='3' r='1.2'/%3E%3Ccircle cx='39' cy='13' r='1.4'/%3E%3Ccircle cx='54' cy='4' r='1.3'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 56px 16px;
+}
+.theme-cherry .hello, .theme-cherry .hello-sub { color: #fbefe9; }
+.theme-cherry .progress { background: rgba(255, 255, 255, 0.18); }
+.theme-cherry .progress-bar { background: linear-gradient(90deg, #d9b26a, #f3dca0); }
+.theme-cherry .plant-chip { background: rgba(255, 255, 255, 0.12); color: #fbefe9; }
+.theme-cherry .plant-info small { color: #ecd3cd; }
+.theme-cherry .plant-bar { background: rgba(255, 255, 255, 0.2); }
+.theme-cherry .plant-bar i { background: #d9b26a; }
+
+.theme-cherry .routine-card { background: linear-gradient(135deg, var(--mint), var(--pink)); }
+.theme-cherry .routine-card.is-night { background: linear-gradient(135deg, #2a0f17, #5a1a26); color: #fbefe9; }
+.theme-cherry .routine-card.is-night .routine-meta { color: #ecd3cd; }
+.theme-cherry .routine-card.is-night .link-btn { color: #f4c7cf; }
+.theme-cherry .routine-step { color: var(--ink); }
+.theme-cherry .snack-card { background: linear-gradient(135deg, var(--mint), var(--pink)); }
+.theme-cherry .weekly-card { background: linear-gradient(135deg, var(--pink), var(--mint)); }
+.theme-cherry .cycle-card { background: linear-gradient(135deg, var(--rose-soft), var(--mint)); }
+.theme-cherry .journal-card { background: linear-gradient(135deg, var(--pink), var(--lavender)); }
+.theme-cherry .focus { background: linear-gradient(165deg, var(--bg), var(--accent-soft)); }
+.theme-cherry .fab { box-shadow: 0 8px 24px rgba(163, 18, 42, 0.35); }
+.theme-cherry .tab.is-active { color: var(--accent); }
+.theme-cherry .btn-add { color: var(--accent); }
+@media (prefers-color-scheme: dark) {
+  .theme-cherry .tab.is-active, .theme-cherry .btn-add { color: var(--ink); }
+}
+
 /* ---------- Printing the week ---------- */
 @media print {
   @page { size: A4 landscape; margin: 10mm; }
   :root { --bg: #fff; --card: #fff; --ink: #222; --muted: #555; --line: #ccc; }
   body { background: #fff; color: #222; font-size: calc(11px * var(--fs, 1)); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
-  .fab, .seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
+  .hello-card::before, .fab, .seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
   .app { max-width: none; padding: 0; }
   .app-header { padding: 0 0 4px; }
   h1 { font-size: calc(20px * var(--fs, 1)); }
