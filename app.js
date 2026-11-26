@@ -361,7 +361,7 @@
   // Google events on a given day (skipping ones that are copies of planner events)
   function gEventsOn(key) {
     if (!state.google.connected) return [];
-    const mine = new Set(state.events.map((e) => e.gId).filter(Boolean));
+    const mine = new Set(state.events.map((e) => e.gId).concat(state.todos.map((t) => t.gEvId)).filter(Boolean));
     return state.google.events.filter((g) => {
       if (g.primary && (mine.has(g.gid) || (g.series && mine.has(g.series)))) return false;
       return g.allDay ? g.start <= key && key < g.end : g.start === key;
@@ -439,7 +439,7 @@
     const overdue = !t.done && t.due && t.due < today;
     let meta = '';
     if (t.due) {
-      meta = (t.time ? '⏰ ' : '📅 ') + relDay(t.due) + (t.time ? ', ' + fmtTime(t.time) : '') + (overdue ? '\nOverdue' : '');
+      meta = (t.time ? (t.remind !== undefined && t.remind !== '' ? '🔔 ' : '⏰ ') : '📅 ') + relDay(t.due) + (t.time ? ', ' + fmtTime(t.time) : '') + (overdue ? '\nOverdue' : '');
     }
     if (Array.isArray(t.steps) && t.steps.length) {
       meta = (meta ? `${meta}\n` : '') + `👣 ${t.steps.filter((s) => s.done).length}/${t.steps.length} steps`;
@@ -868,9 +868,11 @@
     t.doneOn = t.done ? todayKey() : null;
     if (t.stepId) setStepDone(t.stepId, t.done);
     grow(t.done ? 1 : -1);
+    if (t.remind !== undefined && t.remind !== '') t.gRemindDirty = true;
     save();
     render();
     if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
+    if (t.gEvId || (t.remind !== undefined && t.remind !== '')) googlePush(true); // add or remove the reminder
   }
 
   let lastDeleted = null;
@@ -882,6 +884,7 @@
     lastDeleted = { kind, item, index };
     const fromGoogle = kind === 'event' && item.gId && item.gSync;
     if (fromGoogle) state.google.pendingDeletes.push(item.gId);
+    if (kind === 'todo' && item.gEvId) { state.google.pendingDeletes.push(item.gEvId); googlePush(true); }
     save();
     render();
     showToast(kind === 'event' ? (fromGoogle ? 'Deleted here and in Google' : 'Event deleted') : 'To-do deleted', true);
@@ -894,6 +897,12 @@
     const list = kind === 'event' ? state.events : state.todos;
     list.splice(Math.min(index, list.length), 0, item);
     lastDeleted = null;
+    if (kind === 'todo' && item.gEvId) {
+      const pd = state.google.pendingDeletes;
+      if (pd.includes(item.gEvId)) state.google.pendingDeletes = pd.filter((x) => x !== item.gEvId);
+      else { item.gEvId = null; item.gRemindDirty = true; }
+      googlePush(true);
+    }
     if (kind === 'event' && item.gId && item.gSync) {
       const pd = state.google.pendingDeletes;
       if (pd.includes(item.gId)) state.google.pendingDeletes = pd.filter((x) => x !== item.gId);
@@ -949,6 +958,12 @@
     $('#btn-delete').hidden = !item;
     $('#f-gsync-row').hidden = !(isEvent && state.google.connected);
     $('#f-gsync').checked = item ? !!item.gSync : state.google.autoPush;
+    const canNotify = state.google.connected;
+    $('#f-remind-field').hidden = !canNotify;
+    $('#f-remind').value = item && item.remind !== undefined && item.remind !== null ? String(item.remind) : '';
+    $('#f-remind-hint').textContent = canNotify
+      ? (isEvent ? 'Notifications come from Google Calendar on your phone.' : 'Needs a date and time. The notification comes from Google Calendar on your phone.')
+      : '🔔 Want notifications? Connect Google Calendar in ⚙️ Settings → Extras.';
     fError.hidden = true;
 
     sheet.showModal();
@@ -980,7 +995,8 @@
       const repeat = $('#f-repeat').value;
       data = { title, date: fDate.value, time: fTime.value, color: safeColor(color), repeat: REPEATS[repeat] ? repeat : '' };
       if (state.google.connected) {
-        data.gSync = $('#f-gsync').checked;
+        data.remind = $('#f-remind').value;
+        data.gSync = $('#f-gsync').checked || data.remind !== ''; // a notification needs the Google copy
         if (data.gSync) data.gDirty = true;
       }
     } else {
@@ -991,6 +1007,11 @@
       const steps = $('#f-steps').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 20)
         .map((st) => (old && Array.isArray(old.steps) && old.steps.find((s) => s.title === st)) || { id: uid(), title: st.slice(0, 100), done: false });
       data = { title, due, time, steps };
+      if (state.google.connected) {
+        data.remind = $('#f-remind').value;
+        if (data.remind !== '' && !time) return showError('Add a time so I know when to notify you', fTime);
+        data.gRemindDirty = true;
+      }
     }
 
     if (id) {
@@ -1005,6 +1026,7 @@
     render();
     showToast(id ? 'Saved ✨' : kind === 'event' ? 'Event added 🗓️' : 'To-do added 🌷');
     if (kind === 'event' && data.gSync) googlePush();
+    if (kind === 'todo' && state.google.connected) googlePush(true);
   });
 
   $('#btn-cancel').addEventListener('click', closeSheet);
@@ -2621,8 +2643,11 @@
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const RULES = { daily: 'RRULE:FREQ=DAILY', weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'RRULE:FREQ=WEEKLY' };
     const recurrence = RULES[ev.repeat] ? [RULES[ev.repeat]] : [];
+    const reminders = ev.remind !== undefined && ev.remind !== ''
+      ? { useDefault: false, overrides: [{ method: 'popup', minutes: Number(ev.remind) }] }
+      : { useDefault: true };
     if (!ev.time) {
-      return { summary: ev.title, start: { date: ev.date }, end: { date: dateKey(addDays(parseKey(ev.date), 1)) }, recurrence };
+      return { summary: ev.title, start: { date: ev.date }, end: { date: dateKey(addDays(parseKey(ev.date), 1)) }, recurrence, reminders };
     }
     const [h, m] = ev.time.split(':').map(Number);
     const end = parseKey(ev.date);
@@ -2632,13 +2657,31 @@
       start: { dateTime: `${ev.date}T${ev.time}:00`, timeZone },
       end: { dateTime: `${dateKey(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`, timeZone },
       recurrence,
+      reminders,
+    };
+  }
+
+  // A to-do reminder becomes a short "⏰" event in Google Calendar with a notification
+  const wantsReminder = (t) => t.remind !== undefined && t.remind !== '' && !!t.due && !!t.time && !t.done;
+  function reminderBody(t) {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const [h, m] = t.time.split(':').map(Number);
+    const end = parseKey(t.due);
+    end.setHours(h, m + 15);
+    return {
+      summary: `⏰ ${t.title}`,
+      description: 'Reminder from your planner',
+      start: { dateTime: `${t.due}T${t.time}:00`, timeZone },
+      end: { dateTime: `${dateKey(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`, timeZone },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: Number(t.remind) }] },
     };
   }
 
   const waitingCount = () =>
     state.events.filter((e) => e.gSync && (e.gDirty || !e.gId)).length +
     state.google.pendingDeletes.length +
-    state.google.tasks.filter((t) => t.dirty).length;
+    state.google.tasks.filter((t) => t.dirty).length +
+    state.todos.filter((t) => (wantsReminder(t) && (t.gRemindDirty || !t.gEvId)) || (!wantsReminder(t) && t.gEvId)).length;
 
   const isScopeError = (e) => e && e.status === 403 && /scope|insufficient|permission/i.test(e.message);
   const isDisabledError = (e) => e && e.status === 403 && /disabled|has not been used|not enabled/i.test(e.message);
@@ -2752,6 +2795,35 @@
       }
       ev.gDirty = false;
       save();
+    }
+    for (const t of state.todos) {
+      if (wantsReminder(t)) {
+        if (!t.gRemindDirty && t.gEvId) continue;
+        if (t.gEvId) {
+          try {
+            await gApi(`/calendars/primary/events/${encodeURIComponent(t.gEvId)}`, { method: 'PATCH', body: reminderBody(t) });
+          } catch (e) {
+            if (e.status !== 404 && e.status !== 410) throw e;
+            t.gEvId = null;
+          }
+        }
+        if (!t.gEvId) {
+          const r = await gApi('/calendars/primary/events', { method: 'POST', body: reminderBody(t) });
+          t.gEvId = r.id;
+        }
+        t.gRemindDirty = false;
+        save();
+      } else if (t.gEvId) {
+        // done, no time any more, or notification switched off: remove the reminder
+        try {
+          await gApi(`/calendars/primary/events/${encodeURIComponent(t.gEvId)}`, { method: 'DELETE' });
+        } catch (e) {
+          if (e.status !== 404 && e.status !== 410) throw e;
+        }
+        t.gEvId = null;
+        t.gRemindDirty = false;
+        save();
+      }
     }
   }
 

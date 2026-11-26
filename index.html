@@ -346,6 +346,19 @@
         <span>🗓️ Also in Google Calendar</span>
       </label>
 
+      <label class="field" id="f-remind-field" hidden>
+        <span>🔔 Notify me</span>
+        <select id="f-remind">
+          <option value="">No notification</option>
+          <option value="0">At the start time</option>
+          <option value="10">10 minutes before</option>
+          <option value="30">30 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="1440">1 day before</option>
+        </select>
+      </label>
+      <p class="hint" id="f-remind-hint"></p>
+
       <div class="sheet-actions">
         <button class="btn danger" type="button" id="btn-delete">Delete</button>
         <button class="btn ghost" type="button" id="btn-cancel">Cancel</button>

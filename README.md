@@ -84,6 +84,7 @@ Google requires every app that reads a calendar to have its own free "Client ID"
 ### How it works
 - Events from every calendar that's ticked in Google Calendar appear in the planner, from 4 weeks ago to about 4 months ahead, and further as you browse weeks.
 - Tap a Google event to open it in Google Calendar.
+- **Notifications**: choose "🔔 Notify me" on an event or a to-do with a time. The planner puts it in your Google Calendar with an alert, so your phone notifies you (install the Google Calendar app, or add your Google account to the iPhone Calendar app). Ticking a to-do off removes its reminder.
 - **Google Tasks** show in the To-do list, and on Today and Week when they have a due date. Ticking one off in the planner ticks it off in Google too. Tap a task to open it in Google Tasks. (Google only shares a task's date, not its time.)
 - Planner events with **🗓️ Also in Google Calendar** switched on are added to your main Google calendar. Editing or deleting them in the planner updates Google too.
 - Google signs the planner out after about an hour. When that happens, tap the **🗓️** bar at the top to sync again. It usually takes a second. Changes you make in the meantime wait and are sent on the next sync.
