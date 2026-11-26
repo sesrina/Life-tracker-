@@ -514,7 +514,7 @@
 
     const mini = $('#today-cycle');
     const model = cycleModel(todayKey());
-    if (state.cycle.showOnToday && model.st.last && !isLocked()) {
+    if (state.cycle.showOnToday && model.st.last) {
       const info = cycleStatus(model.st, model.pred);
       const ph = model.phaseFor(todayKey());
       mini.innerHTML = `<span>🌙 ${esc(info.short)}</span>` +
@@ -904,7 +904,11 @@
   $('#main').addEventListener('click', (e) => {
     const jday = e.target.closest('[data-jday]');
     if (jday) { openJournal(jday.dataset.jday); return; }
-    if (e.target.closest('#today-journal')) { if (isLocked()) switchView('journal'); else openJournal(todayKey()); return; }
+    if (e.target.closest('#today-journal')) {
+      // writing a new entry needs no PIN; only an existing entry stays behind the lock
+      if (isLocked() && journalEntry(todayKey())) switchView('journal'); else openJournal(todayKey());
+      return;
+    }
     if (e.target.closest('#backup-nudge')) { openSettings(); return; }
     const step = e.target.closest('[data-step]');
     if (step) { toggleStep(step.dataset.slot, step.dataset.step); return; }
