@@ -404,6 +404,19 @@
       ? todos.map(todoHTML).join('')
       : emptyHTML('All clear! Add a to-do to get started 🌱');
 
+    // Evening mode: from 8 pm, show what's coming tomorrow
+    const evening = hour >= 20;
+    $('#tomorrow-block').hidden = !evening;
+    if (evening) {
+      const tk = dateKey(addDays(now, 1));
+      const tasks = sortTodos(allTodos().filter((t) => t.due === tk && !t.done)).map(todoHTML);
+      const items = dayEvents(tk).concat(tasks);
+      $('#tomorrow-date').textContent = fmtDate(tk, { weekday: 'long', day: 'numeric', month: 'long' });
+      $('#tomorrow-list').innerHTML = items.length
+        ? items.join('')
+        : emptyHTML('Nothing planned yet. A fresh start 🌱');
+    }
+
     const mini = $('#today-cycle');
     const model = cycleModel(todayKey());
     if (state.cycle.showOnToday && model.st.last) {
@@ -781,7 +794,8 @@
     if (e.target.closest('#today-cycle')) { switchView('cycle'); return; }
     const addBtn = e.target.closest('[data-add]');
     if (addBtn) {
-      const date = addBtn.dataset.date === 'today' ? todayKey() : addBtn.dataset.date;
+      const d = addBtn.dataset.date;
+      const date = d === 'today' ? todayKey() : d === 'tomorrow' ? dateKey(addDays(new Date(), 1)) : d;
       openSheet(addBtn.dataset.add, null, { date });
       return;
     }

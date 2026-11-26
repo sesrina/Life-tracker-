@@ -222,6 +222,8 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
 
 .sub-label { margin: 18px 4px 8px; font-size: 14px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 
+.tomorrow-date { margin: -4px 6px 10px; }
+
 /* ---------- Week ---------- */
 .week-nav {
   display: flex;
