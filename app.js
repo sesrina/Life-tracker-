@@ -80,6 +80,10 @@
         salt: typeof lock.salt === 'string' ? lock.salt : '',
       },
       backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
+      profile: {
+        name: d.profile && typeof d.profile.name === 'string' ? d.profile.name.slice(0, 30) : '',
+        toured: !!(d.profile && d.profile.toured),
+      },
       goals: Array.isArray(d.goals)
         ? d.goals.filter((g) => g && typeof g.title === 'string' && g.id)
           .map((g) => ({ ...g, steps: Array.isArray(g.steps) ? g.steps.filter((s) => s && typeof s.title === 'string' && s.id) : [] }))
@@ -573,7 +577,8 @@
     const todos = todaysTodos();
     const done = todos.filter((t) => t.done).length;
 
-    $('#today-greeting').textContent = greeting;
+    const nm = state.profile.name;
+    $('#today-greeting').textContent = nm ? greeting.replace(/ (\S+)$/, `, ${nm} $1`) : greeting;
     let summary;
     if (!events.length && !todos.length) summary = 'Nothing planned yet — enjoy the calm 🍵';
     else {
@@ -587,14 +592,14 @@
 
     $('#today-events').innerHTML = events.length
       ? timelineHTML(key)
-      : emptyHTML('No events today ✨');
+      : emptyHTML('No events today ✨ Tap ➕ to add one');
     // Only the next 3 to-dos, so it never feels like too much
     const pending = todos.filter((t) => !t.done);
     const collapsed = !showAllToday && pending.length > 3;
     const shown = collapsed ? pending.slice(0, 3) : todos;
     $('#today-todos').innerHTML = shown.length
       ? shown.map(todoHTML).join('')
-      : emptyHTML('All clear! Add a to-do to get started 🌱');
+      : emptyHTML('All clear! Tap ➕ to add a to-do 🌱');
     const more = $('#today-more');
     more.hidden = !(collapsed || (showAllToday && pending.length > 3));
     more.textContent = collapsed ? `Show ${todos.length - 3} more` : 'Just show the next 3';
@@ -824,9 +829,17 @@
 
   function switchView(name) {
     currentView = name;
+    const isMe = name === 'journal' || name === 'cycle';
+    if (isMe) meSub = name;
+    $('#me-seg').hidden = !isMe;
+    $$('#me-seg [data-me]').forEach((b) => {
+      const on = b.dataset.me === name;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
     $$('.view').forEach((v) => v.classList.toggle('is-active', v.id === `view-${name}`));
     $$('.tab').forEach((t) => {
-      const on = t.dataset.view === name;
+      const on = t.dataset.view === name || (t.dataset.view === 'me' && isMe);
       t.classList.toggle('is-active', on);
       if (on) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
     });
@@ -1019,7 +1032,9 @@
   });
 
   /* ================= Wiring ================= */
-  $$('.tab').forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view)));
+  let meSub = 'journal'; // the Me tab remembers Journal or Cycle
+  $$('.tab').forEach((tab) => tab.addEventListener('click', () => switchView(tab.dataset.view === 'me' ? meSub : tab.dataset.view)));
+  $('#me-seg').addEventListener('click', (e) => { const b = e.target.closest('[data-me]'); if (b) switchView(b.dataset.me); });
 
   // One listener handles taps on every list item and "+" button
   $('#main').addEventListener('click', (e) => {
@@ -1108,7 +1123,7 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open
+    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open || addSheet.open || tourEl.open
       || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
@@ -1413,11 +1428,11 @@
 
   // ---- Brain dump ----
   const dumpSheet = $('#dump-sheet');
-  $('#brain-dump').addEventListener('click', () => {
+  function openDump() {
     $('#dump-text').value = '';
     dumpSheet.showModal();
     setTimeout(() => $('#dump-text').focus(), 50);
-  });
+  }
   $('#dump-cancel').addEventListener('click', () => dumpSheet.close());
   dumpSheet.addEventListener('click', (e) => { if (e.target === dumpSheet) dumpSheet.close(); });
   $('#dump-form').addEventListener('submit', (e) => {
@@ -1822,6 +1837,80 @@
     showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
     celebrate(false);
   }
+
+  /* ================= Friendly: welcome tour & one add button ================= */
+  const TOUR = [
+    { e: '👋', t: 'Hi! Welcome to your planner', x: 'Everything for your day in one cute place. It\'s all saved on this phone only, so it\'s private.', name: true },
+    { e: '🌼', t: 'Today is home', x: 'See what\'s next, your routine and your to-dos. Tick things off for confetti, and to help Pip the plant grow 🌱' },
+    { e: '➕', t: 'One button adds anything', x: 'Tap the big pink + at the bottom right to add a to-do, an event, a journal entry, a goal, or empty your brain.' },
+    { e: '🎯', t: 'Plan your week and your goals', x: 'Week shows your next 7 days. Goals is for big dreams, broken into small, easy steps.' },
+    { e: '💜', t: '"Me" is just for you', x: 'Your journal and cycle live in Me. Lock them with a PIN in ⚙️ Settings. And tap any 💡 to learn why things work!' },
+  ];
+  const tourEl = $('#tour');
+  let tourStep = 0;
+  function renderTour() {
+    const s = TOUR[tourStep];
+    $('#tour-emoji').textContent = s.e;
+    $('#tour-title').textContent = s.t;
+    $('#tour-text').textContent = s.x;
+    $('#tour-name-field').hidden = !s.name;
+    $('#tour-count').textContent = `${tourStep + 1} of ${TOUR.length}`;
+    $('#tour-dots').innerHTML = TOUR.map((_, i) => `<span class="${i === tourStep ? 'on' : ''}"></span>`).join('');
+    $('#tour-next').textContent = tourStep === TOUR.length - 1 ? "Let's go! 🚀" : 'Next ➡️';
+  }
+  function openTour() {
+    tourStep = 0;
+    $('#tour-name').value = state.profile.name;
+    renderTour();
+    tourEl.showModal();
+  }
+  function finishTour() {
+    const n = $('#tour-name').value.trim().slice(0, 30);
+    if (n) state.profile.name = n;
+    state.profile.toured = true;
+    save();
+    if (tourEl.open) tourEl.close();
+    render();
+  }
+  $('#tour-next').addEventListener('click', () => {
+    if (tourStep < TOUR.length - 1) { tourStep++; renderTour(); return; }
+    finishTour();
+    celebrate(true);
+    showToast(state.profile.name ? `Let's do this, ${state.profile.name}! 💖` : "Let's do this! 💖");
+  });
+  $('#tour-skip').addEventListener('click', finishTour);
+  tourEl.addEventListener('cancel', (e) => { e.preventDefault(); finishTour(); });
+  $('#tour-again').addEventListener('click', () => { settingsSheet.close(); openTour(); });
+  $('#profile-name').addEventListener('change', (e) => { state.profile.name = e.target.value.trim().slice(0, 30); save(); render(); });
+
+  function logPeriodToday() {
+    const tk = todayKey();
+    const cur = state.cycle.days[tk];
+    if (isPeriodDay(cur)) { showToast('Already logged for today 🩸'); return; }
+    const prev = state.cycle.days[dateKey(addDays(new Date(), -1))];
+    state.cycle.days[tk] = { ...(cur || { symptoms: [], note: '' }), flow: isPeriodDay(prev) ? prev.flow : 'medium' };
+    save();
+    render();
+    showToast('Logged for today 🩸 Be gentle with yourself 💗');
+  }
+
+  const addSheet = $('#add-sheet');
+  $('#add-fab').addEventListener('click', () => addSheet.showModal());
+  $('#add-cancel').addEventListener('click', () => addSheet.close());
+  addSheet.addEventListener('click', (e) => {
+    if (e.target === addSheet) { addSheet.close(); return; }
+    const b = e.target.closest('[data-addwhat]');
+    if (!b) return;
+    addSheet.close();
+    const tk = todayKey();
+    const what = b.dataset.addwhat;
+    if (what === 'todo') openSheet('todo', null, {});
+    else if (what === 'event') openSheet('event', null, { date: tk });
+    else if (what === 'dump') openDump();
+    else if (what === 'journal') { if (isLocked() && journalEntry(tk)) switchView('journal'); else openJournal(tk); }
+    else if (what === 'goal') { switchView('goals'); openGoal(null); }
+    else if (what === 'period') logPeriodToday();
+  });
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
@@ -2673,6 +2762,8 @@
 
   function openSettings() {
     $('#g-client').value = state.google.clientId;
+    $('#profile-name').value = state.profile.name;
+    $('#settings-more').open = !!state.google.clientId;
     renderSettings();
     renderPrivacy();
     settingsSheet.showModal();
@@ -2722,4 +2813,6 @@
 
   switchView('today');
   if (!handleGoogleRedirect()) maybeAutoSync();
+  // First visit: a quick, friendly tour (skipped by automated browsers)
+  if (!state.profile.toured && !navigator.webdriver) openTour();
 })();

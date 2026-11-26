@@ -485,6 +485,45 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
 .tl-bed { padding: 12px 16px; border-radius: 16px; background: var(--lavender); font-weight: 800; }
 .item.past { opacity: 0.55; }
 
+/* ---------- Friendly: add button, tour, Me switch ---------- */
+.fab { font-size: 38px; font-weight: 500; line-height: 1; }
+.add-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0 14px; }
+.add-tile {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px;
+  border: none;
+  border-radius: 20px;
+  background: var(--accent-soft);
+  font-size: 17px;
+  font-weight: 800;
+}
+.add-tile b { font-size: 34px; line-height: 1.1; }
+.add-tile small { font-size: 12px; font-weight: 700; color: var(--muted); }
+.add-tile:active { transform: scale(0.96); }
+
+.tour-main { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.tour-text { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.5; }
+.tour-name { text-align: left; }
+.tour-dots { display: flex; justify-content: center; gap: 8px; margin: 18px 0; }
+.tour-dots span { width: 10px; height: 10px; border-radius: 99px; background: var(--card); transition: width .2s; }
+.tour-dots span.on { width: 28px; background: var(--accent); }
+#tour-next { min-height: 64px; font-size: 19px; }
+
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 4px; border-radius: 99px; background: var(--card); box-shadow: var(--shadow); }
+.seg button { min-height: 48px; border: none; border-radius: 99px; background: transparent; font-weight: 800; color: var(--muted); }
+.seg button.is-active { background: var(--accent); color: var(--accent-ink); }
+
+.settings-more { border-top: 2px solid var(--line); }
+.settings-more summary { min-height: 56px; display: flex; align-items: center; font-weight: 800; color: var(--muted); cursor: pointer; list-style: none; }
+.settings-more summary::-webkit-details-marker { display: none; }
+.settings-more summary::after { content: "▾"; margin-left: auto; }
+.settings-more[open] summary::after { content: "▴"; }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {
@@ -1093,7 +1132,7 @@ a.item-main { color: inherit; text-decoration: none; }
   :root { --bg: #fff; --card: #fff; --ink: #222; --muted: #555; --line: #ccc; }
   body { background: #fff; color: #222; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
-  .fab, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
+  .fab, .seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
   .app { max-width: none; padding: 0; }
   .app-header { padding: 0 0 4px; }
   h1 { font-size: 20px; }

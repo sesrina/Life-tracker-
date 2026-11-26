@@ -5,7 +5,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Today**: today's events and to-dos together, with a progress bar
 - **Week**: a Monday–Sunday view. Tap **+** to add an event on a day, tap an event to edit or delete it, and swipe or use ‹ › to change week
 - **To-do**: quick-add to-dos and tick them off. Tap a to-do to give it a date and time so it becomes a reminder
-- **Cycle**: a period tracker. Tap "My period started" (and "Still on my period" on the days after), or tap any day on the month calendar to log flow, symptoms and a note. It learns your average cycle, predicts your next period and shows an estimated fertile window. It also shows which phase you're in (menstrual 🩸, follicular 🌱, ovulation ✨ or luteal 🍂), with a short explanation, self-care tips and a coloured line under each calendar date. Predictions are estimates only and aren't suitable for contraception. You can hide the cycle line on the Today screen with a switch at the bottom of the Cycle tab
+- **Cycle** (in 💜 Me): a period tracker. Tap "My period started" (and "Still on my period" on the days after), or tap any day on the month calendar to log flow, symptoms and a note. It learns your average cycle, predicts your next period and shows an estimated fertile window. It also shows which phase you're in (menstrual 🩸, follicular 🌱, ovulation ✨ or luteal 🍂), with a short explanation, self-care tips and a coloured line under each calendar date. Predictions are estimates only and aren't suitable for contraception. You can hide the cycle line on the Today screen with a switch at the bottom of the Cycle tab
 - **Google Calendar**: connect it from ⚙️ Settings to see all your Google events on the Today and Week screens, and to send planner events to Google (see the setup below)
 - **Morning & night routines**: a short checklist on the Today screen (morning until midday, night from 8 pm) with a streak counter. Tap **Edit** to change the steps
 - **Evening view**: from 8 pm the Today screen also shows tomorrow's plan
@@ -22,6 +22,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Break it down**: split any to-do into tiny steps, and Focus mode walks you through them
 - **Plant buddy**: grows as you tick things off, from seedling to secret garden, and never dies
 - **Learn as you go**: 💡 buttons explain the science behind each feature, plus a daily 🧠 Brain snack fact
+- **Easy to use**: a friendly welcome tour on first open (replay it in ⚙️), one big ➕ button to add anything, and 5 simple tabs (Journal and Cycle live together in 💜 Me)
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

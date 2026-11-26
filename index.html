@@ -28,6 +28,10 @@
         <button class="icon-btn settings-btn" type="button" id="open-settings" aria-label="Settings">⚙️</button>
       </div>
       <button class="gsync" type="button" id="gsync" hidden></button>
+      <div class="seg" id="me-seg" role="tablist" aria-label="Me" hidden>
+        <button type="button" role="tab" data-me="journal">📓 Journal</button>
+        <button type="button" role="tab" data-me="cycle">🌙 Cycle</button>
+      </div>
     </header>
 
     <main id="main">
@@ -242,11 +246,48 @@
     <button class="tab" type="button" data-view="week"><span class="tab-icon">🗓️</span><span>Week</span></button>
     <button class="tab" type="button" data-view="goals"><span class="tab-icon">🎯</span><span>Goals</span></button>
     <button class="tab" type="button" data-view="todos"><span class="tab-icon">✅</span><span>To-do</span></button>
-    <button class="tab" type="button" data-view="cycle"><span class="tab-icon">🌙</span><span>Cycle</span></button>
-    <button class="tab" type="button" data-view="journal"><span class="tab-icon">📓</span><span>Journal</span></button>
+    <button class="tab" type="button" data-view="me"><span class="tab-icon">💜</span><span>Me</span></button>
   </nav>
 
-  <button class="fab" type="button" id="brain-dump" aria-label="Brain dump: quickly jot something down">🧠</button>
+  <button class="fab" type="button" id="add-fab" aria-label="Add something">+</button>
+
+  <!-- One button to add anything -->
+  <dialog id="add-sheet" class="sheet" aria-labelledby="add-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="add-title">What do you want to add?</h2>
+      <div class="add-grid">
+        <button class="add-tile" type="button" data-addwhat="todo"><b aria-hidden="true">✅</b>To-do</button>
+        <button class="add-tile" type="button" data-addwhat="event"><b aria-hidden="true">🗓️</b>Event</button>
+        <button class="add-tile" type="button" data-addwhat="dump"><b aria-hidden="true">🧠</b>Brain dump<small>lots of things at once</small></button>
+        <button class="add-tile" type="button" data-addwhat="journal"><b aria-hidden="true">📓</b>Journal</button>
+        <button class="add-tile" type="button" data-addwhat="goal"><b aria-hidden="true">🎯</b>Goal</button>
+        <button class="add-tile" type="button" data-addwhat="period"><b aria-hidden="true">🩸</b>Period started</button>
+      </div>
+      <button class="btn ghost wide" type="button" id="add-cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <!-- Welcome tour -->
+  <dialog id="tour" class="focus" aria-labelledby="tour-title">
+    <div class="focus-body">
+      <div class="focus-top">
+        <span class="focus-count" id="tour-count"></span>
+        <button class="link-btn" type="button" id="tour-skip">Skip</button>
+      </div>
+      <div class="tour-main">
+        <div class="big-emoji" id="tour-emoji" aria-hidden="true"></div>
+        <h2 class="focus-title" id="tour-title"></h2>
+        <p class="tour-text" id="tour-text"></p>
+        <label class="field tour-name" id="tour-name-field" hidden>
+          <span>What should I call you? (optional)</span>
+          <input type="text" id="tour-name" maxlength="30" autocomplete="given-name">
+        </label>
+      </div>
+      <div class="tour-dots" id="tour-dots" aria-hidden="true"></div>
+      <button class="btn primary wide" type="button" id="tour-next">Next ➡️</button>
+    </div>
+  </dialog>
 
   <!-- Add / edit sheet -->
   <dialog id="sheet" class="sheet" aria-labelledby="sheet-title">
@@ -577,6 +618,15 @@
       <h2 id="settings-title">Settings</h2>
 
       <section class="settings-group">
+        <h3>👋 You</h3>
+        <label class="field">
+          <span>Your name (for greetings)</span>
+          <input type="text" id="profile-name" maxlength="30" autocomplete="given-name">
+        </label>
+        <button class="btn ghost wide" type="button" id="tour-again">👋 Show me around again</button>
+      </section>
+
+      <section class="settings-group">
         <h3>🔒 Privacy lock</h3>
         <p class="g-status" id="lock-status"></p>
         <div id="lock-setup">
@@ -609,6 +659,8 @@
         <p class="tip">Backups are locked with this password. Write it down somewhere safe: without it, nobody can open the backup, not even you or me.</p>
       </section>
 
+      <details class="settings-more" id="settings-more">
+      <summary>🔧 Extras: connect Google Calendar</summary>
       <section class="settings-group">
         <h3>🗓️ Google Calendar</h3>
         <p class="g-status" id="g-status"></p>
@@ -627,6 +679,7 @@
         </label>
         <p class="tip">Your Google events show on the Today and Week screens, and Google Tasks show in your to-do list. Tap a Google item to open it in Google. Setup steps are in the README on GitHub.</p>
       </section>
+      </details>
 
       <button class="btn ghost wide" type="button" id="settings-close">Done</button>
     </div>
