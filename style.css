@@ -22,6 +22,10 @@
   --rose-ink: #ffffff;
   --rose-soft: #fde1ea;
   --fertile: #c4ecdf;
+  --ph-menstrual: #ee8fab;
+  --ph-follicular: #7fc4ec;
+  --ph-ovulation: #f2bf4b;
+  --ph-luteal: #ad97e6;
 
   --radius: 22px;
   --tap: 52px;
@@ -53,6 +57,10 @@
     --rose-ink: #ffffff;
     --rose-soft: #4a2c3a;
     --fertile: #2c5547;
+    --ph-menstrual: #c9668a;
+    --ph-follicular: #4f8fb8;
+    --ph-ovulation: #c49a35;
+    --ph-luteal: #7d68b8;
     color-scheme: dark;
   }
 }
@@ -436,7 +444,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
 .cal-day.has-log::after {
   content: "";
   position: absolute;
-  bottom: 3px;
+  top: 3px;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -469,6 +477,71 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
   box-shadow: var(--shadow);
 }
 .toggle-row input { width: 26px; height: 26px; flex: none; accent-color: var(--accent); }
+
+/* Phases */
+.ph-menstrual { --phc: var(--ph-menstrual); }
+.ph-follicular { --phc: var(--ph-follicular); }
+.ph-ovulation { --phc: var(--ph-ovulation); }
+.ph-luteal { --phc: var(--ph-luteal); }
+
+.cal-day[class*="ph-"]::before {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 28%;
+  right: 28%;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--phc);
+}
+.cal-day.period::before { display: none; }
+
+.phase-card {
+  --phc: var(--ph-luteal);
+  margin: 0 0 22px;
+  padding: 18px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--phc) 22%, var(--card));
+  box-shadow: var(--shadow);
+}
+.phase-head { display: flex; align-items: center; gap: 14px; }
+.phase-emoji {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  font-size: 30px;
+}
+.phase-kicker { margin: 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+#phase-name { font-size: 24px; }
+.phase-about { margin: 14px 0 8px; font-weight: 600; }
+.phase-tips { margin: 0 0 16px; font-size: 15px; font-weight: 600; color: var(--muted); }
+.phase-bar { position: relative; display: flex; gap: 3px; height: 14px; margin: 8px 0 18px; }
+.phase-seg { border-radius: 99px; background: var(--phc); min-width: 6px; }
+.phase-marker {
+  position: absolute;
+  top: -6px;
+  width: 8px;
+  height: 26px;
+  margin-left: -4px;
+  border-radius: 99px;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px var(--card);
+}
+.phase-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.phase-list li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 12px; border-radius: 14px; font-weight: 700; }
+.phase-list li.is-current { background: var(--card); }
+.phase-list .dot { width: 14px; height: 14px; flex: none; border-radius: 50%; background: var(--phc); }
+.phase-list .days { margin-left: auto; font-size: 14px; color: var(--muted); }
+.phase-note { margin: 10px 4px 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.day-phase { margin: -8px 0 16px; font-weight: 700; color: var(--muted); }
+.day-phase:empty { display: none; }
+
+.cycle-mini { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; }
+.cycle-mini small { font-size: 14px; font-weight: 700; color: var(--muted); }
 
 .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
 .pill { position: relative; }

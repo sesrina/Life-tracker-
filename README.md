@@ -5,7 +5,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Today**: today's events and to-dos together, with a progress bar
 - **Week**: a Monday–Sunday view. Tap **+** to add an event on a day, tap an event to edit or delete it, and swipe or use ‹ › to change week
 - **To-do**: quick-add to-dos and tick them off. Tap a to-do to give it a date and time so it becomes a reminder
-- **Cycle**: a period tracker. Tap "My period started" (and "Still on my period" on the days after), or tap any day on the month calendar to log flow, symptoms and a note. It learns your average cycle, predicts your next period and shows an estimated fertile window. Predictions are estimates only and aren't suitable for contraception. You can hide the cycle line on the Today screen with a switch at the bottom of the Cycle tab
+- **Cycle**: a period tracker. Tap "My period started" (and "Still on my period" on the days after), or tap any day on the month calendar to log flow, symptoms and a note. It learns your average cycle, predicts your next period and shows an estimated fertile window. It also shows which phase you're in (menstrual 🩸, follicular 🌱, ovulation ✨ or luteal 🍂), with a short explanation, self-care tips and a coloured line under each calendar date. Predictions are estimates only and aren't suitable for contraception. You can hide the cycle line on the Today screen with a switch at the bottom of the Cycle tab
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

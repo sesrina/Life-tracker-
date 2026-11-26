@@ -134,7 +134,7 @@
   function cyclePredictions(st, untilKey) {
     const period = new Set();
     const fertile = new Set();
-    const out = { period, fertile, nextStart: null, lateBy: 0 };
+    const out = { period, fertile, nextStart: null, lateBy: 0, starts: [] };
     if (!st.last) return out;
     const tk = todayKey();
     const today = parseKey(tk);
@@ -147,6 +147,7 @@
     if (out.lateBy > 45) return out; // data is stale, don't guess
     const until = parseKey(untilKey);
     for (let i = 0; i < 24 && addDays(s, -19) <= until; i++) {
+      out.starts.push(dateKey(s));
       for (let j = 0; j < st.avgPeriod; j++) period.add(dateKey(addDays(s, j)));
       const ovulation = addDays(s, -14);
       for (let j = -5; j <= 1; j++) {
@@ -156,6 +157,65 @@
       s = addDays(s, st.avgCycle);
     }
     return out;
+  }
+
+  /* ================= Cycle phases ================= */
+  const PHASES = {
+    menstrual: {
+      name: 'Menstrual', emoji: '🩸',
+      about: 'Your period. Hormone levels are at their lowest, so you might feel tired, crampy or want to turn inward.',
+      tips: '💡 Rest, warmth on your tummy, iron-rich foods and gentle movement like walking or stretching.',
+    },
+    follicular: {
+      name: 'Follicular', emoji: '🌱',
+      about: 'Estrogen rises as your body gets an egg ready. Many people feel energy, mood and motivation lift.',
+      tips: '💡 A great time to start new things, make plans, be social or try a tougher workout.',
+    },
+    ovulation: {
+      name: 'Ovulation', emoji: '✨',
+      about: 'An egg is released, usually around the middle of your cycle. Energy and confidence often peak, and this is your most fertile time.',
+      tips: '💡 Drink plenty of water. Some people notice a mild twinge on one side, which is normal.',
+    },
+    luteal: {
+      name: 'Luteal', emoji: '🍂',
+      about: 'Progesterone rises after ovulation. Towards the end you may notice PMS, like bloating, cravings, tender breasts or mood dips.',
+      tips: '💡 Slow down a little, get extra sleep and eat regular meals. Magnesium-rich foods like dark chocolate, nuts and leafy greens can help.',
+    },
+  };
+  const PHASE_ORDER = ['menstrual', 'follicular', 'ovulation', 'luteal'];
+
+  // Ovulation is estimated ~14 days before the next period
+  function phaseRanges(L, P) {
+    const O = Math.max(P + 2, L - 14);
+    return { menstrual: [1, P], follicular: [P + 1, O - 2], ovulation: [O - 1, O + 1], luteal: [O + 2, L] };
+  }
+  function phaseOfDay(day, L, P) {
+    const r = phaseRanges(L, P);
+    return PHASE_ORDER.find((ph) => day >= r[ph][0] && day <= r[ph][1]) || 'luteal';
+  }
+
+  // Everything the cycle screens need, in one place
+  function cycleModel(untilKey) {
+    const tk = todayKey();
+    const st = cycleStats();
+    const pred = cyclePredictions(st, untilKey > tk ? untilKey : tk);
+    const cycles = st.periods.map((p, i) => {
+      const ongoing = i === st.periods.length - 1 && diffDays(p.end, tk) <= 1;
+      return { start: p.start, P: ongoing ? Math.max(p.length, st.avgPeriod) : p.length };
+    });
+    pred.starts.forEach((s) => { if (s > (st.last ? st.last.end : '')) cycles.push({ start: s, P: st.avgPeriod }); });
+    cycles.forEach((c, i) => { c.L = cycles[i + 1] ? diffDays(c.start, cycles[i + 1].start) : st.avgCycle; });
+
+    function phaseFor(key) {
+      let c = null;
+      for (const x of cycles) { if (x.start <= key) c = x; else break; }
+      if (!c) return null;
+      const day = diffDays(c.start, key) + 1;
+      if (isPeriodDay(state.cycle.days[key])) return { phase: 'menstrual', day, L: c.L, P: c.P };
+      if (day > c.L || (c.L > 60 && day > st.avgCycle)) return null; // gap in logging, don't guess
+      return { phase: phaseOfDay(day, c.L, c.P), day, L: c.L, P: c.P };
+    }
+    return { st, pred, phaseFor };
   }
 
   function cycleStatus(st, pred) {
@@ -272,10 +332,12 @@
       : emptyHTML('All clear! Add a to-do to get started 🌱');
 
     const mini = $('#today-cycle');
-    const st = cycleStats();
-    if (state.cycle.showOnToday && st.last) {
-      const info = cycleStatus(st, cyclePredictions(st, todayKey()));
-      mini.textContent = `🌙 ${info.short}`;
+    const model = cycleModel(todayKey());
+    if (state.cycle.showOnToday && model.st.last) {
+      const info = cycleStatus(model.st, model.pred);
+      const ph = model.phaseFor(todayKey());
+      mini.innerHTML = `<span>🌙 ${esc(info.short)}</span>` +
+        (ph ? `<small>${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} phase</small>` : '');
       mini.hidden = false;
     } else {
       mini.hidden = true;
@@ -285,13 +347,39 @@
   function renderCycle() {
     const tk = todayKey();
     const days = state.cycle.days;
-    const st = cycleStats();
     const first = monthCursor;
     const gridStart = startOfWeek(first);
     const lastOfMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0);
     const gridEnd = addDays(startOfWeek(lastOfMonth), 6);
-    const pred = cyclePredictions(st, dateKey(gridEnd));
+    const model = cycleModel(dateKey(gridEnd));
+    const { st, pred } = model;
     const info = cycleStatus(st, pred);
+
+    // Current phase card
+    const cur = model.phaseFor(tk);
+    const card = $('#phase-card');
+    card.hidden = !cur;
+    if (cur) {
+      const ph = PHASES[cur.phase];
+      card.className = `phase-card ph-${cur.phase}`;
+      $('#phase-emoji').textContent = ph.emoji;
+      $('#phase-name').textContent = `${ph.name} phase`;
+      $('#phase-about').textContent = ph.about;
+      $('#phase-tips').textContent = ph.tips;
+      const L = Math.max(cur.L, cur.day);
+      const r = phaseRanges(L, cur.P);
+      $('#phase-bar').innerHTML = PHASE_ORDER
+        .filter((k) => r[k][1] >= r[k][0])
+        .map((k) => `<span class="phase-seg ph-${k}" style="flex-grow:${r[k][1] - r[k][0] + 1}"></span>`)
+        .join('') + `<span class="phase-marker" style="left:${((cur.day - 0.5) / L) * 100}%"></span>`;
+      $('#phase-list').innerHTML = PHASE_ORDER
+        .filter((k) => r[k][1] >= r[k][0])
+        .map((k) => {
+          const [a, b] = r[k];
+          const days = a === b ? `Day ${a}` : `Days ${a}–${b}`;
+          return `<li class="ph-${k}${k === cur.phase ? ' is-current' : ''}"><span class="dot"></span>${PHASES[k].emoji} ${PHASES[k].name}${k === cur.phase ? ' · now' : ''}<span class="days">${days}</span></li>`;
+        }).join('');
+    }
 
     $('#cycle-ring').style.setProperty('--p', info.p);
     $('#cycle-ring-label').textContent = info.label;
@@ -322,6 +410,8 @@
       const cls = ['cal-day'];
       const notes = [];
       if (d.getMonth() !== first.getMonth()) cls.push('out');
+      const ph = model.phaseFor(key);
+      if (ph) { cls.push(`ph-${ph.phase}`); notes.push(`${PHASES[ph.phase].name.toLowerCase()} phase`); }
       if (key === tk) { cls.push('today'); notes.push('today'); }
       if (isPeriodDay(e)) { cls.push('period'); notes.push(`period, ${e.flow} flow`); }
       else if (e && e.flow === 'spotting') { cls.push('spotting'); notes.push('spotting'); }
@@ -687,6 +777,10 @@
     const rel = relDay(key);
     const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
     $('#day-title').textContent = ['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? `${rel} · ${long}` : long;
+    const ph = cycleModel(key).phaseFor(key);
+    $('#day-phase').textContent = ph
+      ? `${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} phase · cycle day ${ph.day}${key > todayKey() ? ' (estimate)' : ''}`
+      : '';
     $$('input[name="flow"]').forEach((r) => { r.checked = r.value === (e.flow || ''); });
     const syms = Array.isArray(e.symptoms) ? e.symptoms : [];
     $$('input[name="symptom"]').forEach((c) => { c.checked = syms.includes(c.value); });

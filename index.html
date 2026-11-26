@@ -96,6 +96,21 @@
           <button class="btn ghost" type="button" id="cycle-feel">📝 How I feel</button>
         </div>
 
+        <div class="phase-card" id="phase-card" hidden>
+          <div class="phase-head">
+            <span class="phase-emoji" id="phase-emoji" aria-hidden="true"></span>
+            <div>
+              <p class="phase-kicker">You're in your</p>
+              <h2 id="phase-name"></h2>
+            </div>
+          </div>
+          <p class="phase-about" id="phase-about"></p>
+          <p class="phase-tips" id="phase-tips"></p>
+          <div class="phase-bar" id="phase-bar" aria-hidden="true"></div>
+          <ul class="phase-list" id="phase-list"></ul>
+          <p class="phase-note">Phases are estimates based on your cycle length.</p>
+        </div>
+
         <div class="week-nav month-nav">
           <button class="icon-btn" type="button" id="month-prev" aria-label="Previous month">‹</button>
           <div class="week-label">
@@ -111,7 +126,7 @@
           <span><i class="lg-fertile"></i>Fertile (estimate)</span>
           <span><i class="lg-log"></i>Notes</span>
         </div>
-        <p class="tip">Tap any day to log flow, symptoms or a note.</p>
+        <p class="tip">The little coloured line under each date shows its phase. Tap any day to log flow, symptoms or a note.</p>
 
         <div class="stats">
           <div class="stat"><b id="stat-cycle">–</b><span>Avg cycle</span></div>
@@ -187,6 +202,7 @@
     <form id="day-form" novalidate autocomplete="off">
       <div class="sheet-handle" aria-hidden="true"></div>
       <h2 id="day-title">Today</h2>
+      <p class="day-phase" id="day-phase"></p>
 
       <fieldset class="field">
         <legend>Period flow</legend>
