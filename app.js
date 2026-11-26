@@ -5,6 +5,22 @@
   const STORE_KEY = 'cute-planner-v1';
   const COLORS = ['pink', 'lavender', 'mint', 'peach', 'sky'];
 
+  const DEFAULT_ROUTINE = {
+    morning: ['💧 Glass of water', '🛏️ Make the bed', '📋 Look at today\'s plan', '👜 Bag, lunch & keys ready'],
+    night: ['✅ Tick off today', '🌙 Check tomorrow', '👗 Clothes & bag ready', '🔌 Phone on charge', '😴 Lights out (7+ hours sleep)'],
+  };
+  function normRoutine(r) {
+    const ok = r && typeof r === 'object';
+    const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    const list = (arr, def) => (Array.isArray(arr) ? arr : def.map((title) => ({ id: newId(), title })))
+      .filter((x) => x && typeof x.title === 'string' && x.id);
+    return {
+      morning: list(ok && r.morning, DEFAULT_ROUTINE.morning),
+      night: list(ok && r.night, DEFAULT_ROUTINE.night),
+      done: ok && r.done && typeof r.done === 'object' && !Array.isArray(r.done) ? r.done : {},
+    };
+  }
+
   function normCycle(c) {
     const ok = c && typeof c === 'object';
     const days = ok && c.days && typeof c.days === 'object' && !Array.isArray(c.days) ? c.days : {};
@@ -36,13 +52,14 @@
           events: Array.isArray(data.events) ? data.events : [],
           todos: Array.isArray(data.todos) ? data.todos : [],
           cycle: normCycle(data.cycle),
+          routine: normRoutine(data.routine),
           google: normGoogle(data.google),
         };
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
     }
-    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null) };
+    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null), routine: normRoutine(null) };
   }
 
   function save() {
@@ -351,6 +368,67 @@
 
   const emptyHTML = (msg) => `<li class="empty">${msg}</li>`;
 
+  /* ================= Routines ================= */
+  // Morning shows from 3 am until midday, night from 8 pm
+  const routineSlot = (hour) => (hour >= 3 && hour < 12 ? 'morning' : hour >= 20 ? 'night' : null);
+
+  function routineDay(key) {
+    const d = state.routine.done[key];
+    return d && typeof d === 'object' ? d : {};
+  }
+
+  function routineStreak(slot) {
+    let n = 0;
+    let d = new Date();
+    if (!routineDay(todayKey())[`${slot}All`]) d = addDays(d, -1); // today still in progress
+    for (let i = 0; i < 400; i++) {
+      if (!routineDay(dateKey(d))[`${slot}All`]) break;
+      n++;
+      d = addDays(d, -1);
+    }
+    return n;
+  }
+
+  function renderRoutine(hour) {
+    const card = $('#routine-card');
+    const slot = routineSlot(hour);
+    const steps = slot ? state.routine[slot] : [];
+    card.hidden = !slot || !steps.length;
+    if (card.hidden) return;
+    const done = Array.isArray(routineDay(todayKey())[slot]) ? routineDay(todayKey())[slot] : [];
+    const count = steps.filter((s) => done.includes(s.id)).length;
+    const all = count === steps.length;
+    const streak = routineStreak(slot);
+    card.classList.toggle('is-night', slot === 'night');
+    card.classList.toggle('is-done', all);
+    $('#routine-title').textContent = slot === 'morning' ? '☀️ Morning routine' : '🌙 Night routine';
+    $('#routine-sub').textContent = (all ? 'All done, well done! 🎉' : `${count} of ${steps.length} done`) +
+      (streak ? ` · 🔥 ${plural(streak, 'day')} in a row` : '');
+    $('#routine-list').innerHTML = steps.map((s) => {
+      const on = done.includes(s.id);
+      return `<li><button class="routine-step${on ? ' done' : ''}" type="button" data-step="${esc(s.id)}" data-slot="${slot}" aria-pressed="${on}">
+        <span class="tick" aria-hidden="true">✓</span><span>${esc(s.title)}</span></button></li>`;
+    }).join('');
+  }
+
+  function toggleStep(slot, id) {
+    const key = todayKey();
+    const day = { ...routineDay(key) };
+    const list = Array.isArray(day[slot]) ? day[slot].slice() : [];
+    const i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1); else list.push(id);
+    day[slot] = list;
+    const wasAll = !!day[`${slot}All`];
+    day[`${slot}All`] = state.routine[slot].every((s) => list.includes(s.id));
+    state.routine.done[key] = day;
+    // keep about two months of history
+    const cutoff = dateKey(addDays(new Date(), -60));
+    Object.keys(state.routine.done).forEach((k) => { if (k < cutoff) delete state.routine.done[k]; });
+    save();
+    render();
+    if (day[`${slot}All`] && !wasAll) showToast(slot === 'morning' ? 'Morning routine done! Have a great day ☀️' : 'All done. Sleep well 🌙');
+  }
+
   /* ================= Views ================= */
   let currentView = 'today';
   let weekStart = startOfWeek(new Date());
@@ -416,6 +494,8 @@
         ? items.join('')
         : emptyHTML('Nothing planned yet. A fresh start 🌱');
     }
+
+    renderRoutine(hour);
 
     const mini = $('#today-cycle');
     const model = cycleModel(todayKey());
@@ -789,6 +869,8 @@
 
   // One listener handles taps on every list item and "+" button
   $('#main').addEventListener('click', (e) => {
+    const step = e.target.closest('[data-step]');
+    if (step) { toggleStep(step.dataset.slot, step.dataset.step); return; }
     const dayBtn = e.target.closest('[data-day]');
     if (dayBtn) { openDaySheet(dayBtn.dataset.day); return; }
     if (e.target.closest('#today-cycle')) { switchView('cycle'); return; }
@@ -864,7 +946,7 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open || settingsSheet.open) return;
+    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -953,6 +1035,31 @@
   $('#month-today').addEventListener('click', () => {
     const n = new Date(); monthCursor = new Date(n.getFullYear(), n.getMonth(), 1); render();
   });
+
+  /* ================= Routine editor & printing ================= */
+  const routineSheet = $('#routine-sheet');
+  $('#routine-edit').addEventListener('click', () => {
+    $('#routine-morning').value = state.routine.morning.map((s) => s.title).join('\n');
+    $('#routine-night').value = state.routine.night.map((s) => s.title).join('\n');
+    routineSheet.showModal();
+  });
+  $('#routine-cancel').addEventListener('click', () => routineSheet.close());
+  routineSheet.addEventListener('click', (e) => { if (e.target === routineSheet) routineSheet.close(); });
+  $('#routine-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const parse = (text, old) => text.split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 12).map((title) => {
+      const same = old.find((s) => s.title === title); // keep today's ticks on unchanged steps
+      return { id: same ? same.id : uid(), title: title.slice(0, 80) };
+    });
+    state.routine.morning = parse($('#routine-morning').value, state.routine.morning);
+    state.routine.night = parse($('#routine-night').value, state.routine.night);
+    save();
+    routineSheet.close();
+    render();
+    showToast('Routines saved 🌱');
+  });
+
+  $('#print-week').addEventListener('click', () => window.print());
 
   /* ================= Google Calendar ================= */
   const G_TOKEN_KEY = 'cute-planner-gtoken';

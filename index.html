@@ -38,6 +38,16 @@
           <p class="hello-sub" id="today-summary"></p>
           <div class="progress" aria-hidden="true"><div class="progress-bar" id="today-progress"></div></div>
         </div>
+        <section class="routine-card" id="routine-card" hidden>
+          <div class="routine-head">
+            <div>
+              <h2 id="routine-title">☀️ Morning routine</h2>
+              <p class="routine-sub" id="routine-sub"></p>
+            </div>
+            <button class="link-btn" type="button" id="routine-edit">Edit</button>
+          </div>
+          <ul class="routine-list" id="routine-list"></ul>
+        </section>
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
 
         <div class="section-head">
@@ -73,6 +83,7 @@
           <button class="icon-btn" type="button" id="week-next" aria-label="Next week">›</button>
         </div>
         <div id="week-days"></div>
+        <button class="btn ghost wide print-btn" type="button" id="print-week">🖨️ Print this week</button>
       </section>
 
       <!-- TO-DOS -->
@@ -218,6 +229,27 @@
   </dialog>
 
   <!-- Cycle day sheet -->
+  <!-- Routine editor -->
+  <dialog id="routine-sheet" class="sheet" aria-labelledby="routine-sheet-title">
+    <form id="routine-form" class="sheet-body" novalidate>
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="routine-sheet-title">My routines</h2>
+      <p class="hint">One step per line. Keep it short, 3 to 5 small steps is plenty 🌱</p>
+      <label class="field">
+        <span>☀️ Morning (shows until midday)</span>
+        <textarea id="routine-morning" rows="5"></textarea>
+      </label>
+      <label class="field">
+        <span>🌙 Night (shows from 8 pm)</span>
+        <textarea id="routine-night" rows="5"></textarea>
+      </label>
+      <div class="sheet-actions">
+        <button class="btn ghost" type="button" id="routine-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="day-sheet" class="sheet" aria-labelledby="day-title">
     <form id="day-form" novalidate autocomplete="off">
       <div class="sheet-handle" aria-hidden="true"></div>
