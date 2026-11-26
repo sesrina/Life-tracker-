@@ -37,9 +37,11 @@
           <p class="hello" id="today-greeting">Hello!</p>
           <p class="hello-sub" id="today-summary"></p>
           <div class="progress" aria-hidden="true"><div class="progress-bar" id="today-progress"></div></div>
+          <button class="plant-chip" type="button" id="plant-chip"></button>
         </div>
         <div class="upnext" id="upnext" hidden aria-live="polite"></div>
         <button class="btn primary wide focus-btn" type="button" id="focus-start" hidden>🎯 Focus mode</button>
+        <button class="btn ghost wide weekly-nudge" type="button" id="today-weekly" hidden>🗓️ Time for your weekly reset</button>
         <section class="routine-card" id="routine-card" hidden>
           <div class="routine-head">
             <div>
@@ -47,6 +49,7 @@
               <p class="routine-sub" id="routine-sub"></p>
             </div>
             <div class="routine-btns">
+              <button class="why-btn" type="button" data-why="routine" aria-label="Why this helps">💡</button>
               <button class="btn-add" type="button" id="routine-start">▶️ Start</button>
               <button class="link-btn" type="button" id="routine-edit">Edit</button>
             </div>
@@ -58,13 +61,13 @@
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
 
         <div class="section-head">
-          <h2>🗓️ Events</h2>
+          <h2>🗓️ Events <button class="why-btn" type="button" data-why="timeline" aria-label="Why this helps">💡</button></h2>
           <button class="btn-add" type="button" data-add="event" data-date="today">+ Event</button>
         </div>
         <ul class="list" id="today-events"></ul>
 
         <div class="section-head">
-          <h2>🌷 To-dos</h2>
+          <h2>🌷 To-dos <button class="why-btn" type="button" data-why="top3" aria-label="Why this helps">💡</button></h2>
           <button class="btn-add" type="button" data-add="todo" data-date="today">+ To-do</button>
         </div>
         <ul class="list" id="today-todos"></ul>
@@ -78,6 +81,8 @@
           <p class="tip tomorrow-date" id="tomorrow-date"></p>
           <ul class="list" id="tomorrow-list"></ul>
         </div>
+
+        <div class="snack-card" id="snack-card"></div>
       </section>
 
       <!-- WEEK -->
@@ -92,6 +97,16 @@
         </div>
         <div id="week-days"></div>
         <button class="btn ghost wide print-btn" type="button" id="print-week">🖨️ Print this week</button>
+      </section>
+
+      <!-- GOALS -->
+      <section id="view-goals" class="view" aria-labelledby="screen-title">
+        <div id="weekly-card"></div>
+        <div class="section-head">
+          <h2>🎯 My goals <button class="why-btn" type="button" data-why="goals" aria-label="Why this helps">💡</button></h2>
+          <button class="btn-add" type="button" id="goal-add">+ Goal</button>
+        </div>
+        <div id="goal-list"></div>
       </section>
 
       <!-- TO-DOS -->
@@ -137,6 +152,7 @@
               <p class="phase-kicker">You're in your</p>
               <h2 id="phase-name"></h2>
             </div>
+            <button class="why-btn" type="button" data-why="phases" aria-label="Why this helps">💡</button>
           </div>
           <p class="phase-about" id="phase-about"></p>
           <p class="phase-tips" id="phase-tips"></p>
@@ -224,6 +240,7 @@
   <nav class="tabbar" aria-label="Screens">
     <button class="tab is-active" type="button" data-view="today"><span class="tab-icon">🌼</span><span>Today</span></button>
     <button class="tab" type="button" data-view="week"><span class="tab-icon">🗓️</span><span>Week</span></button>
+    <button class="tab" type="button" data-view="goals"><span class="tab-icon">🎯</span><span>Goals</span></button>
     <button class="tab" type="button" data-view="todos"><span class="tab-icon">✅</span><span>To-do</span></button>
     <button class="tab" type="button" data-view="cycle"><span class="tab-icon">🌙</span><span>Cycle</span></button>
     <button class="tab" type="button" data-view="journal"><span class="tab-icon">📓</span><span>Journal</span></button>
@@ -255,6 +272,12 @@
       </div>
       <button class="link-btn" type="button" id="f-clear-when">Remove date &amp; time</button>
       <p class="hint" id="f-hint"></p>
+
+      <div class="field" id="f-steps-field">
+        <span>🪄 Break it down (optional)</span>
+        <textarea id="f-steps" rows="4" aria-label="Tiny steps, one per line" placeholder="Tiny steps, one per line&#10;Open the laptop&#10;Find the email&#10;Write one sentence"></textarea>
+        <p class="hint">Make the first step so small it feels silly. Starting is the hardest part! <button class="why-btn" type="button" data-why="breakdown" aria-label="Why this helps">💡</button></p>
+      </div>
 
       <label class="field" id="f-repeat-field">
         <span>Repeats</span>
@@ -296,6 +319,7 @@
     <div class="focus-body">
       <div class="focus-top">
         <span class="focus-count" id="focus-count"></span>
+        <button class="why-btn" type="button" data-why="focus" aria-label="Why this helps">💡</button>
         <button class="icon-btn" type="button" id="focus-close" aria-label="Close focus mode">✕</button>
       </div>
       <div id="focus-main">
@@ -334,7 +358,7 @@
     <form id="dump-form" class="sheet-body" novalidate autocomplete="off">
       <div class="sheet-handle" aria-hidden="true"></div>
       <h2 id="dump-title">🧠 Brain dump</h2>
-      <p class="hint">Type whatever's in your head, one thing per line. It all goes into your to-dos so you don't have to hold onto it.</p>
+      <p class="hint">Type whatever's in your head, one thing per line. It all goes into your to-dos so you don't have to hold onto it. <button class="why-btn" type="button" data-why="dump" aria-label="Why this helps">💡</button></p>
       <label class="field">
         <span>What's on your mind?</span>
         <textarea id="dump-text" rows="6" placeholder="Buy cotton pads&#10;Text Mum back&#10;Book car WOF"></textarea>
@@ -342,6 +366,93 @@
       <div class="sheet-actions">
         <button class="btn ghost" type="button" id="dump-cancel">Cancel</button>
         <button class="btn primary" type="submit">Save to to-dos</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Why? explanations -->
+  <dialog id="why-sheet" class="sheet" aria-labelledby="why-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="why-title"></h2>
+      <p class="why-body" id="why-body"></p>
+      <p class="why-source" id="why-source"></p>
+      <button class="btn primary wide" type="button" id="why-close">Got it 💡</button>
+    </div>
+  </dialog>
+
+  <!-- Plant buddy -->
+  <dialog id="plant-sheet" class="sheet" aria-labelledby="plant-sheet-title">
+    <form id="plant-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <div class="plant-big" id="plant-big" aria-hidden="true">🌱</div>
+      <h2 id="plant-sheet-title">Your plant buddy <button class="why-btn" type="button" data-why="plant" aria-label="Why this helps">💡</button></h2>
+      <p class="hint" id="plant-status"></p>
+      <div class="plant-stages" id="plant-stages" aria-hidden="true"></div>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="plant-name" maxlength="20">
+      </label>
+      <p class="hint">How it grows: ✅ to-do +1 · 🎯 goal step +2 · 📓 journal +2 · ☀️🌙 full routine +3 · 🗓️ weekly reset +5. It never dies, it just waits for you 💚</p>
+      <div class="sheet-actions">
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Goal editor -->
+  <dialog id="goal-sheet" class="sheet" aria-labelledby="goal-sheet-title">
+    <form id="goal-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="goal-sheet-title">New goal</h2>
+      <div class="field-row goal-row">
+        <label class="field"><span>Emoji</span><input type="text" id="goal-emoji" maxlength="4"></label>
+        <label class="field"><span>Goal</span><input type="text" id="goal-title" maxlength="80" placeholder="Do nails full-time"></label>
+      </div>
+      <label class="field">
+        <span>💖 Why it matters to me</span>
+        <input type="text" id="goal-why-input" maxlength="120" placeholder="Freedom to do what I love">
+      </label>
+      <label class="field">
+        <span>👣 Small steps (one per line)</span>
+        <textarea id="goal-steps" rows="6"></textarea>
+      </label>
+      <p class="hint">Make each step something you could do in one sitting. Tap "+ To-do" on a step to put it on your list.</p>
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="goal-delete">Delete</button>
+        <button class="btn ghost" type="button" id="goal-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Weekly reset -->
+  <dialog id="weekly-sheet" class="sheet" aria-labelledby="weekly-title">
+    <form id="weekly-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="weekly-title">🗓️ Weekly reset</h2>
+      <p class="weekly-step">1 · 👀 Look back at your last 7 days</p>
+      <div class="weekly-stats" id="weekly-stats"></div>
+      <label class="field">
+        <span>🏆 One win from this week (big or small)</span>
+        <input type="text" id="weekly-win" maxlength="200" placeholder="I did my morning routine 4 times!">
+      </label>
+      <label class="field">
+        <span>🌱 One thing to try differently</span>
+        <input type="text" id="weekly-lesson" maxlength="200" placeholder="Lay out my clothes the night before">
+      </label>
+      <p class="weekly-step">2 · 🎯 Pick up to 3 things for this week <span class="weekly-count" id="weekly-count"></span></p>
+      <div class="chips weekly-picks" id="weekly-picks"></div>
+      <div class="field weekly-own">
+        <span>Or type your own</span>
+        <input type="text" id="weekly-own1" maxlength="120" aria-label="Your own pick 1">
+        <input type="text" id="weekly-own2" maxlength="120" aria-label="Your own pick 2">
+        <input type="text" id="weekly-own3" maxlength="120" aria-label="Your own pick 3">
+      </div>
+      <p class="hint">Just 3. A short list you finish feels much better than a long one you don't 💪</p>
+      <div class="sheet-actions">
+        <button class="btn ghost" type="button" id="weekly-cancel">Cancel</button>
+        <button class="btn primary" type="submit">✨ Start my week</button>
       </div>
     </form>
   </dialog>

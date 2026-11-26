@@ -16,6 +16,12 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Made for ADHD brains**: an *Up next* card with a live countdown, *Focus mode* (one thing at a time, a visual timer with a chime, Done or Later), routines you can play step by step, only the next 3 to-dos on Today, confetti and cheers when you tick things off, and a floating 🧠 *Brain dump* button to empty your head into your to-dos
 - **Built on habit research**: forgiving streaks (one missed day is OK, "never miss twice"), a habit-building tracker towards ~66 days, a trigger for each routine ("After I turn off my alarm…"), and a lights-out countdown for a regular bedtime
 - **Repeating events**: every day, weekdays or every week (also sent to Google Calendar as repeating events)
+- **Life goals**: goals with a "why" and small steps; add any step to your to-dos. Ticking it off moves the goal forward
+- **Weekly reset**: a 10-minute look back (routines, to-dos, mood) and pick 3 things for the week
+- **Day timeline**: today's events with free-time gaps, a "now" line and lights-out
+- **Break it down**: split any to-do into tiny steps, and Focus mode walks you through them
+- **Plant buddy**: grows as you tick things off, from seedling to secret garden, and never dies
+- **Learn as you go**: 💡 buttons explain the science behind each feature, plus a daily 🧠 Brain snack fact
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

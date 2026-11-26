@@ -80,6 +80,16 @@
         salt: typeof lock.salt === 'string' ? lock.salt : '',
       },
       backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
+      goals: Array.isArray(d.goals)
+        ? d.goals.filter((g) => g && typeof g.title === 'string' && g.id)
+          .map((g) => ({ ...g, steps: Array.isArray(g.steps) ? g.steps.filter((s) => s && typeof s.title === 'string' && s.id) : [] }))
+        : [],
+      weekly: d.weekly && typeof d.weekly === 'object' && !Array.isArray(d.weekly) ? d.weekly : {},
+      plant: {
+        name: d.plant && typeof d.plant.name === 'string' && d.plant.name ? d.plant.name : 'Pip',
+        xp: d.plant && Number.isFinite(d.plant.xp) ? d.plant.xp : 0,
+        last: d.plant && typeof d.plant.last === 'string' ? d.plant.last : '',
+      },
     };
   }
 
@@ -349,10 +359,43 @@
   }
 
   // Planner + Google events for a day, sorted by time
-  function dayEvents(key) {
-    const mine = state.events.filter((e) => occursOn(e, key)).map((e) => ({ time: e.time || '', title: e.title, html: eventHTML(e) }));
-    const theirs = gEventsOn(key).map((g) => ({ time: g.allDay ? '' : g.time, title: g.title, html: gEventHTML(g) }));
-    return mine.concat(theirs).sort(byTime).map((x) => x.html);
+  function hm(t) { const [a, b] = String(t).split(':').map(Number); return a * 60 + b; }
+  function dayEventItems(key) {
+    const len = (g) => { if (!g.endTime || !g.time) return 60; const d = hm(g.endTime) - hm(g.time); return d > 0 ? d : 60; };
+    const mine = state.events.filter((e) => occursOn(e, key)).map((e) => ({ time: e.time || '', title: e.title, dur: 60, html: eventHTML(e) }));
+    const theirs = gEventsOn(key).map((g) => ({ time: g.allDay ? '' : g.time, title: g.title, dur: len(g), html: gEventHTML(g) }));
+    return mine.concat(theirs).sort(byTime);
+  }
+  function dayEvents(key) { return dayEventItems(key).map((x) => x.html); }
+
+  // Today's events as a timeline: free gaps, a "now" line and lights-out
+  function timelineHTML(key) {
+    const items = dayEventItems(key);
+    const timed = items.filter((x) => x.time);
+    if (!timed.length) return items.map((x) => x.html).join('');
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const dur = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+    const nowRow = () => `<li class="tl-now"><span>Now · ${esc(fmtTime(`${pad(now.getHours())}:${pad(now.getMinutes())}`))}</span></li>`;
+    const gap = (m) => `<li class="tl-gap">☁️ Free time · ${dur(m)}</li>`;
+    const out = items.filter((x) => !x.time).map((x) => x.html);
+    let prevEnd = null;
+    let nowDone = false;
+    timed.forEach((x) => {
+      const s = hm(x.time);
+      if (prevEnd !== null && s - prevEnd >= 30) out.push(gap(s - prevEnd));
+      if (!nowDone && s > nowMin) { out.push(nowRow()); nowDone = true; }
+      out.push(s + x.dur <= nowMin ? x.html.replace('class="item event', 'class="item event past') : x.html);
+      prevEnd = Math.max(prevEnd === null ? 0 : prevEnd, s + x.dur);
+    });
+    const bed = state.routine.bed ? hm(state.routine.bed) : null;
+    if (bed !== null && bed > prevEnd) {
+      if (bed - prevEnd >= 30) out.push(gap(bed - prevEnd));
+      if (!nowDone && nowMin < bed) { out.push(nowRow()); nowDone = true; }
+      out.push(`<li class="tl-bed">🛏️ Lights out · ${esc(fmtTime(state.routine.bed))}</li>`);
+    }
+    if (!nowDone) out.push(nowRow());
+    return out.join('');
   }
 
   // Local to-dos plus Google Tasks, in one list
@@ -387,6 +430,9 @@
     let meta = '';
     if (t.due) {
       meta = (t.time ? '⏰ ' : '📅 ') + relDay(t.due) + (t.time ? ' · ' + fmtTime(t.time) : '') + (overdue ? ' · overdue' : '');
+    }
+    if (Array.isArray(t.steps) && t.steps.length) {
+      meta = (meta ? `${meta} · ` : '') + `👣 ${t.steps.filter((s) => s.done).length}/${t.steps.length} steps`;
     }
     return `<li class="item todo${t.done ? ' done' : ''}${overdue ? ' overdue' : ''}" data-kind="todo" data-id="${esc(t.id)}">
       <button class="check" type="button" data-action="toggle" aria-pressed="${t.done ? 'true' : 'false'}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}">
@@ -487,6 +533,7 @@
     if (day[`${slot}All`] && !wasAll) {
       showToast(slot === 'morning' ? 'Morning routine done! Have a great day ☀️' : 'All done. Sleep well 🌙');
       celebrate(true);
+      grow(3);
     } else if (list.includes(id)) {
       celebrate(false);
     }
@@ -497,7 +544,7 @@
   let weekStart = startOfWeek(new Date());
   let todoFilter = 'active';
 
-  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders', cycle: 'My cycle', journal: 'Journal' };
+  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders', cycle: 'My cycle', journal: 'Journal', goals: 'Life goals' };
   let monthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   function renderHeader() {
@@ -539,7 +586,7 @@
     $('#today-progress').style.width = todos.length ? `${Math.round((done / todos.length) * 100)}%` : '0%';
 
     $('#today-events').innerHTML = events.length
-      ? events.join('')
+      ? timelineHTML(key)
       : emptyHTML('No events today ✨');
     // Only the next 3 to-dos, so it never feels like too much
     const pending = todos.filter((t) => !t.done);
@@ -554,6 +601,9 @@
     $('#focus-start').hidden = !pending.length;
     $('#focus-start').textContent = `🎯 Focus mode · ${plural(pending.length, 'thing')} to do`;
     renderUpNext();
+    renderPlantChip();
+    renderSnack();
+    $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
 
     // Evening mode: from 8 pm, show what's coming tomorrow
     const evening = hour >= 20;
@@ -767,6 +817,7 @@
     if (currentView === 'todos') renderTodos();
     if (currentView === 'cycle') renderCycle();
     if (currentView === 'journal') renderJournal();
+    if (currentView === 'goals') renderGoals();
     renderGBar();
     renderHeader();
   }
@@ -795,6 +846,8 @@
     if (!t) return;
     t.done = !t.done;
     t.doneOn = t.done ? todayKey() : null;
+    if (t.stepId) setStepDone(t.stepId, t.done);
+    grow(t.done ? 1 : -1);
     save();
     render();
     if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
@@ -869,6 +922,8 @@
     $('#f-colors').hidden = !isEvent;
     $('#f-repeat-field').hidden = !isEvent;
     $('#f-repeat').value = item && item.repeat && REPEATS[item.repeat] ? item.repeat : '';
+    $('#f-steps-field').hidden = isEvent;
+    $('#f-steps').value = !isEvent && item && Array.isArray(item.steps) ? item.steps.map((s) => s.title).join('\n') : '';
     const color = item ? safeColor(item.color) : 'pink';
     $$('input[name="color"]').forEach((r) => { r.checked = r.value === color; });
     $('#btn-delete').hidden = !item;
@@ -912,7 +967,10 @@
       let due = fDate.value;
       const time = fTime.value;
       if (time && !due) due = todayKey();
-      data = { title, due, time };
+      const old = id ? find('todo', id) : null;
+      const steps = $('#f-steps').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 20)
+        .map((st) => (old && Array.isArray(old.steps) && old.steps.find((s) => s.title === st)) || { id: uid(), title: st.slice(0, 100), done: false });
+      data = { title, due, time, steps };
     }
 
     if (id) {
@@ -1050,7 +1108,8 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open) return;
+    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open
+      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1200,7 +1259,7 @@
     el.hidden = !u;
     if (!u) return;
     el.classList.toggle('is-soon', u.soon);
-    el.innerHTML = `<span class="upnext-label">⏰ Up next</span><span class="upnext-title">${esc(u.title)}</span><span class="upnext-when">${esc(u.when)} · ${esc(u.at)}</span>`;
+    el.innerHTML = `<span class="upnext-label">⏰ Up next ${whyBtn('upnext')}</span><span class="upnext-title">${esc(u.title)}</span><span class="upnext-when">${esc(u.when)} · ${esc(u.at)}</span>`;
   }
   setInterval(() => { if (currentView === 'today' && !document.hidden) renderUpNext(); }, 30 * 1000);
 
@@ -1227,12 +1286,20 @@
         .map((s) => ({ id: s.id, title: s.title, meta: focusSlot === 'morning' ? '☀️ Morning routine' : '🌙 Night routine' }));
     } else {
       const tk = todayKey();
-      focusQueue = todaysTodos().filter((t) => !t.done).map((t) => ({
-        id: t.id,
-        isG: !!t.isG,
-        title: t.title,
-        meta: t.due ? `${relDay(t.due)}${t.time ? ` · ${fmtTime(t.time)}` : ''}${t.due < tk ? ' · overdue' : ''}` : '',
-      }));
+      focusQueue = [];
+      todaysTodos().filter((t) => !t.done).forEach((t) => {
+        const subs = !t.isG && Array.isArray(t.steps) ? t.steps.filter((s) => !s.done) : [];
+        if (subs.length) {
+          subs.forEach((s) => focusQueue.push({ id: t.id, subId: s.id, title: s.title, meta: `👣 Step of: ${t.title}` }));
+        } else {
+          focusQueue.push({
+            id: t.id,
+            isG: !!t.isG,
+            title: t.title,
+            meta: t.due ? `${relDay(t.due)}${t.time ? ` · ${fmtTime(t.time)}` : ''}${t.due < tk ? ' · overdue' : ''}` : '',
+          });
+        }
+      });
     }
     if (!focusQueue.length) { showToast('Nothing left here. Nice! 🌸'); return; }
     focusIdx = 0;
@@ -1323,6 +1390,7 @@
     const item = focusQueue[focusIdx];
     if (!item) return;
     if (focusKind === 'routine') toggleStep(focusSlot, item.id);
+    else if (item.subId) doSubStep(item.id, item.subId);
     else if (item.isG) toggleGTask(item.id);
     else toggleTodo(item.id);
     focusIdx++;
@@ -1363,6 +1431,397 @@
     showToast(`${plural(lines.length, 'thing')} out of your head and into your to-dos 🧠✨`);
     celebrate(false);
   });
+
+  /* ================= Learn: "Why?" explanations & daily brain snacks ================= */
+  const WHY = {
+    upnext: {
+      t: '⏰ Why a countdown?',
+      b: 'ADHD can make it hard to feel time passing (often called "time blindness"). Seeing "in 25 min" turns time into something you can see, so you get caught out less. Clinical guides recommend timers, countdowns and alarms for exactly this reason.',
+      s: 'NHS ADHD self-help guidance; HelpGuide',
+    },
+    focus: {
+      t: '🎯 Why one thing at a time?',
+      b: 'A long list makes your brain spend energy choosing, and that can freeze you. Showing one task removes the choice, and a visible timer gives a clear finish line. "Just 10 minutes" is much easier to start than "the whole thing".',
+      s: 'Same idea as ADHD apps like Llama Life and Routinery; NHS guidance on timers',
+    },
+    top3: {
+      t: '🌱 Why only 3 to-dos?',
+      b: 'Seeing everything at once can trigger overwhelm and "where do I even start?". Showing the next 3 keeps it doable, and the rest are still there when you want them. Designers of ADHD apps found the same thing in testing: too much on one screen recreates the overwhelm.',
+      s: 'ADHD app design case studies',
+    },
+    routine: {
+      t: '🔁 Why routines work',
+      b: 'In a UCL study, new daily habits took 66 days on average to feel automatic (anywhere from 18 to 254), and missing a single day did not undo progress. That\'s why your streak forgives one missed day. Tying a routine to a trigger ("After I turn off my alarm…") is called an if-then plan: across 94 studies it made people noticeably more likely to follow through. And a regular lights-out time matters too: large 2023 studies linked a regular sleep schedule with better health, even more strongly than hours slept.',
+      s: 'Lally et al., 2010; Gollwitzer & Sheeran, 2006; Windred et al., 2023',
+    },
+    dump: {
+      t: '🧠 Why a brain dump?',
+      b: 'Holding lots of little things in your head uses up working memory, your brain\'s "sticky note" space, which is often already stretched with ADHD. Getting thoughts out onto paper frees that space: in one study, anxious students who wrote down their worries before an exam did better on it.',
+      s: 'Ramirez & Beilock, 2011 (Science)',
+    },
+    journal: {
+      t: '📓 Why journal?',
+      b: 'Writing about your thoughts and feelings for a few minutes has been linked to better mood and wellbeing in many studies. Noting good things helps too: people who wrote down three good things each evening for a week were happier for months afterwards. And rating your mood lets the planner show patterns you\'d never spot from memory.',
+      s: 'Pennebaker\'s expressive writing research; Seligman et al., 2005',
+    },
+    goals: {
+      t: '🎯 Why goals with small steps?',
+      b: 'Big goals like "do nails full-time" are too blurry to act on, so they get put off. Small, concrete steps give your brain a clear next thing to do. And feeling progress on something that matters to you is one of the biggest boosts to motivation there is.',
+      s: 'Amabile & Kramer, "The Progress Principle" (2011)',
+    },
+    weekly: {
+      t: '🗓️ Why a weekly reset?',
+      b: 'People are more likely to start fresh at "new beginnings" like a Monday, a new month or a birthday. Researchers call it the fresh start effect. A short look back also helps you notice what worked, instead of only remembering what went wrong.',
+      s: 'Dai, Milkman & Riis, 2014',
+    },
+    breakdown: {
+      t: '🪄 Why break tasks down?',
+      b: 'With ADHD the hardest part is often starting, especially when a task feels big and fuzzy. A tiny, concrete first step ("open the laptop") is easy to begin, and once you\'re moving it\'s easier to keep going. That\'s why tools like Goblin Tools\' Magic ToDo are so loved.',
+      s: 'Executive-function support guides; Goblin Tools',
+    },
+    plant: {
+      t: '🌱 Why a plant buddy?',
+      b: 'ADHD brains tend to respond more strongly to rewards that come right away than to ones far in the future. Small instant rewards, like confetti or your plant growing, give a little "yes!" for each step while the big goal is still far off. Your plant never dies; it just waits for you, because guilt doesn\'t help anyone get started.',
+      s: 'Research on reward and delay in ADHD (e.g. Sonuga-Barke); apps like Finch',
+    },
+    phases: {
+      t: '🌙 Why track cycle phases?',
+      b: 'Hormone levels change across the menstrual cycle, and many people notice their energy, mood and focus shift with them. Everyone is different, so your own data is the best guide: your journal\'s patterns will show how your mood moves through your phases.',
+      s: 'Menstrual-cycle research; your own journal patterns',
+    },
+    timeline: {
+      t: '🕒 Why see your day as a timeline?',
+      b: 'A plain list hides how much time you actually have. Seeing events, free gaps and "now" on a line makes time concrete, which is why visual planners like Tiimo (Apple\'s iPhone App of the Year 2025) are so popular with ADHD users.',
+      s: 'Tiimo; NHS guidance on making time visible',
+    },
+  };
+
+  const SNACKS = [
+    ['New habits took 66 days on average to feel automatic in a UCL study, not 21! It ranged from 18 to 254 days, so be patient with yourself.', 'Lally et al., 2010'],
+    ['Missing one day did not undo habit-building in the UCL habit study. What mattered was not missing lots. So: never miss twice.', 'Lally et al., 2010'],
+    ['The "21 days to form a habit" idea comes from a 1960 self-help book about getting used to changes, not from a study.', 'UCL Behavioural Science & Health blog'],
+    ['If-then plans ("After I turn off my alarm, I\'ll drink water") made people noticeably more likely to follow through, across 94 studies.', 'Gollwitzer & Sheeran, 2006'],
+    ['Writing a to-do list for tomorrow before bed helped people fall asleep faster than writing about what they had already done.', 'Scullin et al., 2018'],
+    ['Going to bed and waking at regular times was linked to better long-term health, even more strongly than how many hours people slept.', 'Windred et al., 2023 (60,000+ people)'],
+    ['Writing down three good things each evening for one week made people happier for months afterwards.', 'Seligman et al., 2005'],
+    ['Anxious students who spent 10 minutes writing about their worries before an exam did better on it. Brain dumps work!', 'Ramirez & Beilock, 2011'],
+    ['People are more likely to start new goals on "fresh start" days: Mondays, the 1st of the month, birthdays. Use them!', 'Dai, Milkman & Riis, 2014'],
+    ['Making progress on meaningful work, even small progress, was the biggest boost to people\'s mood and motivation at work.', 'Amabile & Kramer, 2011'],
+    ['Morning daylight helps set your body clock, which can make it easier to feel sleepy at bedtime. Open the curtains or step outside!', 'Circadian sleep research'],
+    ['Studies, mostly in children and teens with ADHD, found short bursts of exercise can give a small, temporary boost to attention and focus.', 'Meta-analyses of exercise and ADHD'],
+    ['People with ADHD often underestimate how long things take. A common tip: add a buffer of about half again to your guesses.', 'HelpGuide; ADHD coaching advice'],
+    ['ADHD is linked to differences in how the brain handles reward, which is part of why quick, small rewards can feel so motivating.', 'Research on reward processing in ADHD'],
+    ['"Body doubling" (working alongside someone) is popular with ADHD, but proper trials are still missing. If it helps you, that\'s what counts.', 'CHADD; Popular Science'],
+    ['Even mild dehydration has been linked to lower mood and concentration in studies of young women. Water first thing is a great habit.', 'Armstrong et al., 2012'],
+  ];
+  let snackOffset = 0;
+
+  function renderSnack() {
+    const dayNo = Math.floor(parseKey(todayKey()).getTime() / 86400000);
+    const [fact, source] = SNACKS[(((dayNo + snackOffset) % SNACKS.length) + SNACKS.length) % SNACKS.length];
+    $('#snack-card').innerHTML = `<div class="snack-head"><span class="snack-label">🧠 Brain snack</span>
+      <button class="link-btn" type="button" id="snack-next">Another one ➡️</button></div>
+      <p class="snack-fact">${esc(fact)}</p><p class="snack-source">📚 ${esc(source)}</p>`;
+  }
+
+  const whySheet = $('#why-sheet');
+  document.addEventListener('click', (e) => {
+    const w = e.target.closest('[data-why]');
+    if (w && WHY[w.dataset.why]) {
+      e.preventDefault();
+      const info = WHY[w.dataset.why];
+      $('#why-title').textContent = info.t;
+      $('#why-body').textContent = info.b;
+      $('#why-source').textContent = `📚 ${info.s}`;
+      whySheet.showModal();
+      return;
+    }
+    if (e.target.closest('#snack-next')) { snackOffset++; renderSnack(); }
+  });
+  $('#why-close').addEventListener('click', () => whySheet.close());
+  whySheet.addEventListener('click', (e) => { if (e.target === whySheet) whySheet.close(); });
+  const whyBtn = (key) => `<button class="why-btn" type="button" data-why="${key}" aria-label="Why this helps">💡</button>`;
+
+  /* ================= Plant buddy ================= */
+  const STAGES = [
+    [0, '🌱', 'Seedling'], [10, '🌿', 'Sprout'], [30, '🪴', 'Little plant'], [60, '🌷', 'Budding'],
+    [100, '🌸', 'Blooming'], [160, '🌳', 'Mighty tree'], [250, '🌺', 'Secret garden'],
+  ];
+  const plantStage = (xp) => { let i = 0; STAGES.forEach((s, j) => { if (xp >= s[0]) i = j; }); return i; };
+
+  function grow(n) {
+    const p = state.plant;
+    const before = plantStage(p.xp);
+    p.xp = Math.max(0, p.xp + n);
+    if (n > 0) p.last = todayKey();
+    save();
+    const after = plantStage(p.xp);
+    if (after > before) {
+      setTimeout(() => {
+        showToast(`${STAGES[after][1]} ${p.name} grew into a ${STAGES[after][2].toLowerCase()}!`);
+        celebrate(true);
+      }, 1400);
+    }
+  }
+
+  function renderPlantChip() {
+    const p = state.plant;
+    const i = plantStage(p.xp);
+    const [, emoji, label] = STAGES[i];
+    const next = STAGES[i + 1];
+    const thirsty = p.last && diffDays(p.last, todayKey()) >= 3;
+    const pct = next ? Math.round(((p.xp - STAGES[i][0]) / (next[0] - STAGES[i][0])) * 100) : 100;
+    $('#plant-chip').innerHTML = `<span class="plant-emoji" aria-hidden="true">${thirsty ? '🥀' : emoji}</span>
+      <span class="plant-info"><span>${esc(p.name)} · ${thirsty ? 'missed you! 💧' : label}</span>
+      <span class="plant-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
+      <small>${next ? `${next[0] - p.xp} to ${next[2].toLowerCase()} ${next[1]}` : 'Fully grown! 🌺'}</small></span>`;
+    $('#plant-chip').setAttribute('aria-label', `Your plant ${p.name}: ${label}, ${p.xp} growth points`);
+  }
+
+  const plantSheet = $('#plant-sheet');
+  $('#plant-chip').addEventListener('click', () => {
+    const p = state.plant;
+    const i = plantStage(p.xp);
+    $('#plant-big').textContent = STAGES[i][1];
+    $('#plant-name').value = p.name;
+    $('#plant-status').textContent = `${STAGES[i][2]} · ${p.xp} growth points`;
+    $('#plant-stages').innerHTML = STAGES.map((s, j) => `<span class="${j <= i ? 'got' : ''}" title="${esc(s[2])}">${s[1]}</span>`).join('');
+    plantSheet.showModal();
+  });
+  $('#plant-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#plant-name').value.trim().slice(0, 20);
+    if (name) state.plant.name = name;
+    save();
+    plantSheet.close();
+    render();
+  });
+  plantSheet.addEventListener('click', (e) => { if (e.target === plantSheet) plantSheet.close(); });
+
+  /* ================= Life goals ================= */
+  const GOAL_IDEAS = [
+    { emoji: '💅', title: 'Do nails full-time', why: 'Freedom to do what I love', steps: ['Choose my business name', 'Set up my Instagram page', 'Work out my prices', 'Do 10 practice clients', 'Get my certificate'] },
+    { emoji: '💸', title: 'Pay off my debt', why: 'Less stress, more freedom', steps: ['List every debt and its interest rate', 'Set up an automatic payment', 'Pay extra on the highest-interest one'] },
+    { emoji: '💪', title: 'Feel healthier', why: 'More energy for the things I love', steps: ['Walk 3 times a week', 'Drink water every morning', 'Cook one new meal a week'] },
+  ];
+  const goalSheet = $('#goal-sheet');
+  let editingGoal = null;
+
+  const findGoalStep = (sid) => {
+    for (const g of state.goals) { const s = g.steps.find((x) => x.id === sid); if (s) return { g, s }; }
+    return null;
+  };
+  const linkedTodo = (sid) => state.todos.find((t) => t.stepId === sid);
+
+  function renderGoals() {
+    // Weekly reset card
+    const wk = targetWeek();
+    const w = state.weekly[wk];
+    if (w) {
+      const picks = state.todos.filter((t) => t.weekOf === wk);
+      const doneN = picks.filter((t) => t.done).length;
+      $('#weekly-card').innerHTML = `<div class="weekly-card"><h2>✅ This week's focus ${whyBtn('weekly')}</h2>
+        <p class="weekly-sub">${picks.length ? `${doneN} of ${picks.length} done${doneN === picks.length ? ' 🎉' : ''}` : 'Reset done for this week'}</p>
+        ${picks.length ? `<ul class="list">${picks.map(todoHTML).join('')}</ul>` : ''}
+        ${w.win ? `<p class="weekly-sub">🏆 Last week's win: ${esc(w.win)}</p>` : ''}</div>`;
+    } else {
+      $('#weekly-card').innerHTML = `<div class="weekly-card"><h2>🗓️ Weekly reset ${whyBtn('weekly')}</h2>
+        <p class="weekly-sub">10 minutes to look back and pick your 3 things for the week. Sundays or Mondays are perfect.</p>
+        <button class="btn primary wide" type="button" id="weekly-start">✨ Start my weekly reset</button></div>`;
+    }
+
+    // Goals
+    if (!state.goals.length) {
+      $('#goal-list').innerHTML = `<div class="goal-card empty-goals"><p>What do you want your life to look like? Add a goal, or start from an idea:</p>
+        <div class="chips">${GOAL_IDEAS.map((g, i) => `<button class="chip" type="button" data-goal-idea="${i}">${g.emoji} ${esc(g.title)}</button>`).join('')}</div></div>`;
+      return;
+    }
+    $('#goal-list').innerHTML = state.goals.map((g) => {
+      const doneN = g.steps.filter((s) => s.done).length;
+      const pct = g.steps.length ? Math.round((doneN / g.steps.length) * 100) : 0;
+      return `<div class="goal-card">
+        <div class="goal-head"><span class="goal-emoji" aria-hidden="true">${esc(g.emoji || '🎯')}</span>
+          <div class="goal-text"><h3>${esc(g.title)}</h3>${g.why ? `<p class="goal-why">💖 ${esc(g.why)}</p>` : ''}</div>
+          <button class="link-btn" type="button" data-goal-edit="${esc(g.id)}">Edit</button></div>
+        <div class="goal-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
+        <p class="goal-count">${g.steps.length ? `${doneN} of ${g.steps.length} steps${pct === 100 ? ' · goal reached! 🏆' : ''}` : 'Add some small steps with Edit'}</p>
+        <ul class="goal-steps">${g.steps.map((s) => {
+          const linked = linkedTodo(s.id);
+          const onList = linked && !linked.done;
+          return `<li><button class="routine-step goal-step${s.done ? ' done' : ''}" type="button" data-goal-step="${esc(s.id)}" aria-pressed="${s.done}">
+            <span class="tick" aria-hidden="true">✓</span><span>${esc(s.title)}</span></button>
+            ${s.done ? '' : `<button class="mini-btn" type="button" data-goal-todo="${esc(s.id)}" ${onList ? 'disabled' : ''}>${onList ? 'On list ✓' : '+ To-do'}</button>`}</li>`;
+        }).join('')}</ul></div>`;
+    }).join('');
+  }
+
+  function setStepDone(sid, done) {
+    const f = findGoalStep(sid);
+    if (!f || f.s.done === done) return;
+    f.s.done = done;
+    if (done) grow(2);
+  }
+
+  function openGoal(id, idea) {
+    const g = id ? state.goals.find((x) => x.id === id) : null;
+    editingGoal = g ? g.id : null;
+    const src = g || idea || {};
+    $('#goal-sheet-title').textContent = g ? 'Edit goal' : 'New goal';
+    $('#goal-emoji').value = src.emoji || '🎯';
+    $('#goal-title').value = src.title || '';
+    $('#goal-why-input').value = src.why || '';
+    $('#goal-steps').value = (src.steps || []).map((s) => (typeof s === 'string' ? s : s.title)).join('\n');
+    $('#goal-delete').hidden = !g;
+    goalSheet.showModal();
+  }
+
+  $('#goal-add').addEventListener('click', () => openGoal(null));
+  $('#goal-cancel').addEventListener('click', () => goalSheet.close());
+  goalSheet.addEventListener('click', (e) => { if (e.target === goalSheet) goalSheet.close(); });
+  $('#goal-delete').addEventListener('click', () => {
+    if (!editingGoal || !confirm('Delete this goal and its steps?')) return;
+    state.goals = state.goals.filter((g) => g.id !== editingGoal);
+    save();
+    goalSheet.close();
+    render();
+  });
+  $('#goal-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = $('#goal-title').value.trim();
+    if (!title) { showToast('Give your goal a name 🙂'); $('#goal-title').focus(); return; }
+    const old = editingGoal ? state.goals.find((g) => g.id === editingGoal) : null;
+    const steps = $('#goal-steps').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 30)
+      .map((t) => { const same = old && old.steps.find((s) => s.title === t); return same || { id: uid(), title: t.slice(0, 100), done: false }; });
+    const data = { emoji: $('#goal-emoji').value.trim().slice(0, 4) || '🎯', title: title.slice(0, 80), why: $('#goal-why-input').value.trim().slice(0, 120), steps };
+    if (old) Object.assign(old, data); else state.goals.push({ id: uid(), created: Date.now(), ...data });
+    save();
+    goalSheet.close();
+    render();
+    showToast(old ? 'Goal saved ✨' : 'New goal added 🎯 You\'ve got this!');
+  });
+
+  /* ================= Weekly reset ================= */
+  const weeklySheet = $('#weekly-sheet');
+  // On Sunday you plan the week ahead; any other day, the current week
+  function targetWeek() {
+    const d = new Date();
+    return dateKey(startOfWeek(d.getDay() === 0 ? addDays(d, 1) : d));
+  }
+  let weeklyPicks = [];
+
+  function openWeekly() {
+    const last7 = [];
+    for (let i = 1; i <= 7; i++) last7.push(dateKey(addDays(new Date(), -i)));
+    const mDone = last7.filter((k) => routineDay(k).morningAll).length;
+    const nDone = last7.filter((k) => routineDay(k).nightAll).length;
+    const tDone = allTodos().filter((t) => t.done && t.doneOn && last7.concat(todayKey()).includes(t.doneOn)).length;
+    const moods = last7.map((k) => moodOf(journalEntry(k))).filter(Boolean);
+    const avg = moods.length ? avgOf(moods) : 0;
+    $('#weekly-stats').innerHTML = `
+      <div><b>${mDone}/7</b>☀️ morning routines</div>
+      <div><b>${nDone}/7</b>🌙 night routines</div>
+      <div><b>${tDone}</b>✅ to-dos done</div>
+      <div><b>${avg ? `${moodEmoji(avg)} ${avg.toFixed(1)}` : '–'}</b>💗 average mood</div>`;
+    weeklyPicks = [];
+    const open = [];
+    state.goals.forEach((g) => g.steps.forEach((s) => { if (!s.done) open.push({ sid: s.id, label: `${g.emoji || '🎯'} ${s.title}` }); }));
+    $('#weekly-picks').innerHTML = open.length
+      ? open.slice(0, 15).map((o) => `<button class="chip" type="button" data-pick="${esc(o.sid)}">${esc(o.label)}</button>`).join('')
+      : '<p class="hint">Add a goal in the Goals tab to get suggestions here. For now, type your own below.</p>';
+    ['#weekly-win', '#weekly-lesson', '#weekly-own1', '#weekly-own2', '#weekly-own3'].forEach((s) => { $(s).value = ''; });
+    updatePickCount();
+    weeklySheet.showModal();
+  }
+  function updatePickCount() {
+    const own = ['#weekly-own1', '#weekly-own2', '#weekly-own3'].filter((s) => $(s).value.trim()).length;
+    const n = weeklyPicks.length + own;
+    $('#weekly-count').textContent = n > 3 ? `That's ${n}: only the first 3 will be kept 🌱` : `${n} of 3 picked`;
+  }
+  $('#weekly-picks').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-pick]');
+    if (!c) return;
+    const sid = c.dataset.pick;
+    const own = ['#weekly-own1', '#weekly-own2', '#weekly-own3'].filter((s) => $(s).value.trim()).length;
+    if (weeklyPicks.includes(sid)) weeklyPicks = weeklyPicks.filter((x) => x !== sid);
+    else if (weeklyPicks.length + own < 3) weeklyPicks.push(sid);
+    else { showToast('3 is plenty! Unpick one first 🌱'); return; }
+    c.classList.toggle('is-active', weeklyPicks.includes(sid));
+    updatePickCount();
+  });
+  ['#weekly-own1', '#weekly-own2', '#weekly-own3'].forEach((s) => $(s).addEventListener('input', updatePickCount));
+  $('#weekly-cancel').addEventListener('click', () => weeklySheet.close());
+  $('#weekly-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const wk = targetWeek();
+    const own = ['#weekly-own1', '#weekly-own2', '#weekly-own3'].map((s) => $(s).value.trim()).filter(Boolean);
+    const titles = [];
+    weeklyPicks.slice(0, 3).forEach((sid, i) => {
+      const f = findGoalStep(sid);
+      if (!f) return;
+      const existing = linkedTodo(sid);
+      if (existing && !existing.done) { existing.weekOf = wk; titles.push(existing.title); return; }
+      const title = `${f.g.emoji || '🎯'} ${f.s.title}`;
+      state.todos.push({ id: uid(), created: Date.now() + i, title, due: '', time: '', done: false, stepId: sid, weekOf: wk });
+      titles.push(title);
+    });
+    own.slice(0, Math.max(0, 3 - titles.length)).forEach((title, i) => {
+      state.todos.push({ id: uid(), created: Date.now() + 10 + i, title: title.slice(0, 120), due: '', time: '', done: false, weekOf: wk });
+      titles.push(title);
+    });
+    state.weekly[wk] = { win: $('#weekly-win').value.trim().slice(0, 200), lesson: $('#weekly-lesson').value.trim().slice(0, 200), picks: titles, at: Date.now() };
+    grow(5);
+    save();
+    weeklySheet.close();
+    render();
+    showToast('Your week is set! ✨ Fresh start energy');
+    celebrate(true);
+  });
+
+  // Clicks inside the Goals tab
+  $('#view-goals').addEventListener('click', (e) => {
+    const idea = e.target.closest('[data-goal-idea]');
+    if (idea) { openGoal(null, GOAL_IDEAS[Number(idea.dataset.goalIdea)]); return; }
+    const ed = e.target.closest('[data-goal-edit]');
+    if (ed) { openGoal(ed.dataset.goalEdit); return; }
+    const st = e.target.closest('[data-goal-step]');
+    if (st) {
+      const f = findGoalStep(st.dataset.goalStep);
+      if (!f) return;
+      const now = !f.s.done;
+      setStepDone(f.s.id, now);
+      const t = linkedTodo(f.s.id);
+      if (t && t.done !== now) { t.done = now; t.doneOn = now ? todayKey() : null; }
+      save();
+      render();
+      if (now) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
+      return;
+    }
+    const td = e.target.closest('[data-goal-todo]');
+    if (td && !td.disabled) {
+      const f = findGoalStep(td.dataset.goalTodo);
+      if (!f) return;
+      state.todos.push({ id: uid(), created: Date.now(), title: `${f.g.emoji || '🎯'} ${f.s.title}`, due: '', time: '', done: false, stepId: f.s.id });
+      save();
+      render();
+      showToast('Added to your to-dos 🌷');
+      return;
+    }
+    if (e.target.closest('#weekly-start')) openWeekly();
+  });
+  $('#today-weekly').addEventListener('click', () => openWeekly());
+
+  // A tiny step from "Break it down" is done
+  function doSubStep(todoId, subId) {
+    const t = find('todo', todoId);
+    if (!t || !Array.isArray(t.steps)) return;
+    const s = t.steps.find((x) => x.id === subId);
+    if (s) s.done = true;
+    if (t.steps.every((x) => x.done)) { if (!t.done) toggleTodo(t.id); return; }
+    save();
+    render();
+    showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+    celebrate(false);
+  }
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
@@ -1412,6 +1871,7 @@
     const energy = Number(($('input[name="jenergy"]:checked') || {}).value) || 0;
     const text = $('#journal-text').value.trim().slice(0, 5000);
     const good = $('#journal-good').value.trim();
+    if ((mood || energy || text || good) && !journalEntry(editingJournal)) grow(2);
     if (mood || energy || text || good) {
       state.journal[editingJournal] = { mood, energy, text, good, updated: Date.now() };
     } else {
@@ -1480,7 +1940,7 @@
       ? `<div class="journal-card"><h2>${m ? `<span class="journal-mood-big">${MOODS[m][0]}</span>` : ''}Today: ${m ? MOODS[m][1] : 'written'}</h2>
           <p>${esc(today.text ? today.text.slice(0, 140) + (today.text.length > 140 ? '…' : '') : today.good ? `🌟 ${today.good}` : 'Add a few words about your day.')}</p>
           <button class="btn ghost" type="button" data-jday="${tk}">✏️ Edit today's entry</button></div>`
-      : `<div class="journal-card"><h2>📓 How did today go?</h2><p>A minute is enough: pick a mood and write a line or two.</p>
+      : `<div class="journal-card"><h2>📓 How did today go? ${whyBtn('journal')}</h2><p>A minute is enough: pick a mood and write a line or two.</p>
           <button class="btn primary" type="button" data-jday="${tk}">✍️ Write today's entry</button></div>`;
 
     // Gentle backup reminder once there's something worth protecting
@@ -1943,7 +2403,9 @@
     }
     const s = new Date(ev.start.dateTime);
     if (isNaN(s)) return null;
-    return { ...base, allDay: false, start: dateKey(s), end: dateKey(s), time: `${pad(s.getHours())}:${pad(s.getMinutes())}` };
+    const e2 = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : null;
+    const endTime = e2 && !isNaN(e2) && dateKey(e2) === dateKey(s) ? `${pad(e2.getHours())}:${pad(e2.getMinutes())}` : '';
+    return { ...base, allDay: false, start: dateKey(s), end: dateKey(s), time: `${pad(s.getHours())}:${pad(s.getMinutes())}`, endTime };
   }
 
   async function fetchGoogleRange(from, to) {
@@ -2044,6 +2506,7 @@
     t.done = !t.done;
     t.doneOn = t.done ? todayKey() : '';
     t.dirty = true;
+    grow(t.done ? 1 : -1);
     save();
     render();
     if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
