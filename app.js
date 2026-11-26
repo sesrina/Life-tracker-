@@ -96,6 +96,8 @@
         : [],
       weekly: d.weekly && typeof d.weekly === 'object' && !Array.isArray(d.weekly) ? d.weekly : {},
       plants: Array.isArray(d.plants) ? d.plants.filter((p) => p && p.id && typeof p.name === 'string') : [],
+      habits: Array.isArray(d.habits) ? d.habits.filter((h) => h && h.id && typeof h.title === 'string') : [],
+      habitLog: d.habitLog && typeof d.habitLog === 'object' && !Array.isArray(d.habitLog) ? d.habitLog : {},
       plant: {
         name: d.plant && typeof d.plant.name === 'string' && d.plant.name ? d.plant.name : 'Pip',
         xp: d.plant && Number.isFinite(d.plant.xp) ? d.plant.xp : 0,
@@ -339,13 +341,14 @@
   }
 
   // Repeating events: '' (once), 'daily', 'weekdays' or 'weekly'
-  const REPEATS = { daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week' };
+  const REPEATS = { daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week', monthly: 'Every month' };
   function occursOn(ev, key) {
     if (!ev.repeat || !REPEATS[ev.repeat]) return ev.date === key;
     if (key < ev.date) return false;
     if (ev.repeat === 'daily') return true;
     const dow = parseKey(key).getDay();
     if (ev.repeat === 'weekdays') return dow >= 1 && dow <= 5;
+    if (ev.repeat === 'monthly') return parseKey(key).getDate() === parseKey(ev.date).getDate();
     return dow === parseKey(ev.date).getDay();
   }
 
@@ -444,6 +447,7 @@
     if (t.due) {
       meta = (t.time ? (t.remind !== undefined && t.remind !== '' ? '🔔 ' : '⏰ ') : '📅 ') + relDay(t.due) + (t.time ? ', ' + fmtTime(t.time) : '') + (overdue ? '\nOverdue' : '');
     }
+    if (t.repeat && REPEATS[t.repeat] && !t.done) meta = (meta ? `${meta}\n` : '') + `🔁 ${REPEATS[t.repeat]}`;
     if (Array.isArray(t.steps) && t.steps.length) {
       meta = (meta ? `${meta}\n` : '') + `👣 ${t.steps.filter((s) => s.done).length}/${t.steps.length} steps`;
     }
@@ -619,6 +623,7 @@
     renderPlantChip();
     renderSnack();
     renderGardenCard();
+    renderHabitCard();
     $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
 
     // Evening mode: from 8 pm, show what's coming tomorrow
@@ -752,6 +757,14 @@
   }
 
   function renderWeek() {
+    $('#week-mode').hidden = weekMode === 'month';
+    $('#month-mode').hidden = weekMode !== 'month';
+    $$('.week-seg [data-wmode]').forEach((b) => {
+      const on = b.dataset.wmode === weekMode;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    if (weekMode === 'month') { renderMonthView(); return; }
     const end = addDays(weekStart, 6);
     const sameMonth = weekStart.getMonth() === end.getMonth();
     const startLabel = weekStart.toLocaleDateString([], sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' });
@@ -872,11 +885,12 @@
     t.done = !t.done;
     t.doneOn = t.done ? todayKey() : null;
     if (t.stepId) setStepDone(t.stepId, t.done);
+    const nextOne = handleRepeat(t);
     grow(t.done ? 1 : -1);
     if (t.remind !== undefined && t.remind !== '') t.gRemindDirty = true;
     save();
     render();
-    if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
+    if (t.done) { showToast(nextOne ? `Done ✓ Next one: ${relDay(nextOne)}` : CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
     if (t.gEvId || (t.remind !== undefined && t.remind !== '')) googlePush(true); // add or remove the reminder
   }
 
@@ -954,7 +968,7 @@
       : 'Date and time are optional — add them to make it a reminder.';
     $('#f-clear-when').hidden = isEvent;
     $('#f-colors').hidden = !isEvent;
-    $('#f-repeat-field').hidden = !isEvent;
+    $('#f-repeat-field').hidden = false;
     $('#f-repeat').value = item && item.repeat && REPEATS[item.repeat] ? item.repeat : '';
     $('#f-steps-field').hidden = isEvent;
     $('#f-steps').value = !isEvent && item && Array.isArray(item.steps) ? item.steps.map((s) => s.title).join('\n') : '';
@@ -1011,7 +1025,9 @@
       const old = id ? find('todo', id) : null;
       const steps = $('#f-steps').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 20)
         .map((st) => (old && Array.isArray(old.steps) && old.steps.find((s) => s.title === st)) || { id: uid(), title: st.slice(0, 100), done: false });
-      data = { title, due, time, steps };
+      const repeat = REPEATS[$('#f-repeat').value] ? $('#f-repeat').value : '';
+      if (repeat && !due) due = todayKey();
+      data = { title, due, time, steps, repeat };
       if (state.google.connected) {
         data.remind = $('#f-remind').value;
         if (data.remind !== '' && !time) return showError('Add a time so I know when to notify you', fTime);
@@ -1133,14 +1149,16 @@
   $('#quick-add').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#quick-title');
-    const title = input.value.trim();
-    if (!title) { input.focus(); return; }
-    state.todos.push({ id: uid(), created: Date.now(), title, due: '', time: '', done: false });
+    const raw = input.value.trim();
+    if (!raw) { input.focus(); return; }
+    const q = parseQuick(raw); // "Call Mum Friday 3pm" → title, date and time
+    state.todos.push({ id: uid(), created: Date.now(), title: q.title, due: q.due, time: q.time, repeat: q.repeat, done: false });
     input.value = '';
+    $('#quick-tip').textContent = QUICK_TIP;
     if (todoFilter === 'done') todoFilter = 'active';
     save();
     render();
-    showToast('To-do added 🌷');
+    showToast(q.due ? `Added for ${relDay(q.due)}${q.time ? `, ${fmtTime(q.time)}` : ''} 🌷` : 'To-do added 🌷');
   });
 
   $$('.chip').forEach((chip) => chip.addEventListener('click', () => { todoFilter = chip.dataset.filter; render(); }));
@@ -1158,7 +1176,7 @@
   let lastDay = todayKey();
   function refreshIfNeeded() {
     if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open || addSheet.open || tourEl.open
-      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open) return;
+      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open || habitSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1476,7 +1494,10 @@
     e.preventDefault();
     const lines = $('#dump-text').value.split('\n').map((l) => l.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 50);
     if (!lines.length) { dumpSheet.close(); return; }
-    lines.forEach((title, i) => state.todos.push({ id: uid(), created: Date.now() + i, title: title.slice(0, 120), due: '', time: '', done: false }));
+    lines.forEach((line, i) => {
+      const q = parseQuick(line);
+      state.todos.push({ id: uid(), created: Date.now() + i, title: q.title, due: q.due, time: q.time, repeat: q.repeat, done: false });
+    });
     save();
     dumpSheet.close();
     render();
@@ -1486,6 +1507,16 @@
 
   /* ================= Learn: "Why?" explanations & daily brain snacks ================= */
   const WHY = {
+    habits: {
+      t: '✨ Why track habits?',
+      b: 'Ticking a box each day keeps your progress visible, and that helps. A big review of 138 studies found that monitoring progress made people more likely to reach their goals, especially when the progress was actually recorded. Start with 2 to 4 small habits. Missing one day is fine; just try not to miss twice.',
+      s: 'Harkin et al., 2016 (Psychological Bulletin); Lally et al., 2010',
+    },
+    pixels: {
+      t: '🌈 Why a Year in Pixels?',
+      b: 'Seeing a whole year of moods at once makes patterns jump out: tough weeks, good seasons, and how your routines or cycle line up with how you feel. It is one of the most popular bullet journal pages of all time, and the planner fills it in for you from your journal.',
+      s: 'Bullet Journal community',
+    },
     plants: {
       t: '🪴 Why these watering times?',
       b: 'Every plant drinks differently. Basil and tomatoes are thirsty, while succulents, string of hearts and snake plants rot if they are watered too often. These schedules are a starting point: light, heat, wind, pot size and the season all change how fast soil dries. The best test is your finger: water when the top few centimetres of soil feel dry. Outdoor pots in sun and wind dry out faster, so the planner shortens their schedule.',
@@ -1574,6 +1605,7 @@
     ['People with ADHD often underestimate how long things take. A common tip: add a buffer of about half again to your guesses.', 'HelpGuide; ADHD coaching advice'],
     ['ADHD is linked to differences in how the brain handles reward, which is part of why quick, small rewards can feel so motivating.', 'Research on reward processing in ADHD'],
     ['"Body doubling" (working alongside someone) is popular with ADHD, but proper trials are still missing. If it helps you, that\'s what counts.', 'CHADD; Popular Science'],
+    ['Tracking your progress helps you reach goals: across 138 studies, people who monitored their progress did better, especially when they wrote it down.', 'Harkin et al., 2016'],
     ['Even mild dehydration has been linked to lower mood and concentration in studies of young women. Water first thing is a great habit.', 'Armstrong et al., 2012'],
   ];
   let snackOffset = 0;
@@ -1960,6 +1992,7 @@
     else if (what === 'period') logPeriodToday();
     else if (what === 'plant') openGardenEdit(null);
     else if (what === 'plants') openGardenManager();
+    else if (what === 'habits') openHabitSheet(!state.habits.length);
   });
 
   /* ================= Reading comfort & read aloud ================= */
@@ -2321,6 +2354,337 @@
     }
   }
 
+  /* ================= Smart typing: "Call Mum Friday 3pm", "Bins every Thursday" ================= */
+  const WD_FULL = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const MON3 = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  const END = '(?=[\\s,.!?]|$)';
+  function dayIndex(w) {
+    const x = w.toLowerCase().slice(0, 3);
+    return ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'].indexOf(x);
+  }
+  function upcoming(dow, allowToday) {
+    let d = parseKey(todayKey());
+    if (!allowToday) d = addDays(d, 1);
+    while (d.getDay() !== dow) d = addDays(d, 1);
+    return d;
+  }
+  function dayMonth(day, monthIdx) {
+    const now = parseKey(todayKey());
+    let d = new Date(now.getFullYear(), monthIdx, day);
+    if (d.getMonth() !== monthIdx) return '';
+    if (d < now) d = new Date(now.getFullYear() + 1, monthIdx, day);
+    return dateKey(d);
+  }
+
+  function parseQuick(text) {
+    let s = ` ${text} `;
+    let due = '';
+    let time = '';
+    let repeat = '';
+    const take = (re) => { const m = s.match(re); if (m) s = s.replace(m[0], ' '); return m; };
+    const SHORT = '(mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)';
+    const FULL = '(monday|tuesday|wednesday|thursday|friday|saturday|sunday)';
+    let m;
+    // Repeats
+    if ((m = take(new RegExp(`\\s(every\\s?day|daily)${END}`, 'i')))) repeat = 'daily';
+    else if ((m = take(new RegExp(`\\s(every\\s+weekday|weekdays)${END}`, 'i')))) repeat = 'weekdays';
+    else if ((m = take(new RegExp(`\\severy\\s+${FULL}${END}`, 'i'))) || (m = take(new RegExp(`\\severy\\s+${SHORT}${END}`, 'i')))) {
+      repeat = 'weekly';
+      due = dateKey(upcoming(dayIndex(m[1]), true));
+    } else if ((m = take(new RegExp(`\\s(every\\s+week|weekly)${END}`, 'i')))) repeat = 'weekly';
+    else if ((m = take(new RegExp(`\\s(every\\s+month|monthly)${END}`, 'i')))) repeat = 'monthly';
+    // Time
+    if ((m = take(new RegExp(`\\s(?:at\\s+)?(\\d{1,2})(?:[:.](\\d{2}))?\\s?(am|pm)${END}`, 'i')))) {
+      const h = (Number(m[1]) % 12) + (m[3].toLowerCase() === 'pm' ? 12 : 0);
+      time = `${pad(h)}:${pad(Number(m[2] || 0))}`;
+    } else if ((m = take(new RegExp(`\\s(?:at\\s+)?([01]?\\d|2[0-3]):([0-5]\\d)${END}`)))) time = `${pad(Number(m[1]))}:${m[2]}`;
+    else if ((m = take(new RegExp(`\\s(?:at\\s+)?noon${END}`, 'i')))) time = '12:00';
+    // Dates
+    if (!due) {
+      if ((m = take(new RegExp(`\\s(today|tonight)${END}`, 'i')))) {
+        due = todayKey();
+        if (m[1].toLowerCase() === 'tonight' && !time) time = '20:00';
+      } else if ((m = take(new RegExp(`\\s(tomorrow|tmrw|tmr)${END}`, 'i')))) due = dateKey(addDays(new Date(), 1));
+      else if ((m = take(new RegExp(`\\sin\\s+(\\d{1,2})\\s+days?${END}`, 'i')))) due = dateKey(addDays(new Date(), Number(m[1])));
+      else if ((m = take(new RegExp(`\\s(next\\s+week|in\\s+a\\s+week)${END}`, 'i')))) due = dateKey(addDays(new Date(), 7));
+      else if ((m = take(new RegExp(`\\s(?:(?:on|this|next)\\s+)?${FULL}${END}`, 'i'))) || (m = take(new RegExp(`\\s(?:on|this|next)\\s+${SHORT}${END}`, 'i')))) {
+        due = dateKey(upcoming(dayIndex(m[1]), false));
+      } else if ((m = take(new RegExp(`\\s(?:on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MON3.join('|')})[a-z]*${END}`, 'i')))) {
+        due = dayMonth(Number(m[1]), MON3.indexOf(m[2].toLowerCase().slice(0, 3)));
+      } else if ((m = take(new RegExp(`\\s(?:on\\s+)?(${MON3.join('|')})[a-z]*\\s+(\\d{1,2})(?:st|nd|rd|th)?${END}`, 'i')))) {
+        due = dayMonth(Number(m[2]), MON3.indexOf(m[1].toLowerCase().slice(0, 3)));
+      } else if ((m = take(new RegExp(`\\s(?:on\\s+)?(\\d{1,2})\\/(\\d{1,2})${END}`)))) {
+        due = dayMonth(Number(m[1]), Number(m[2]) - 1); // day/month, the NZ way
+      }
+    }
+    if ((repeat || time) && !due) due = todayKey();
+    let title = s.replace(/\s+/g, ' ').trim().replace(/\s+(at|on|by|every)$/i, '').replace(/^(at|on)\s+/i, '').trim();
+    if (!title) title = text.trim();
+    return { title: title.slice(0, 120), due, time, repeat };
+  }
+
+  function describeParsed(q) {
+    const bits = [];
+    if (q.due) bits.push(`📅 ${relDay(q.due)}${q.time ? `, ${fmtTime(q.time)}` : ''}`);
+    if (q.repeat) bits.push(`🔁 ${REPEATS[q.repeat]}`);
+    return bits.join('   ');
+  }
+
+  /* ================= Repeating to-dos ================= */
+  function nextRepeatDate(t) {
+    const anchorDay = parseKey(t.due || todayKey()).getDate();
+    const step = (d) => {
+      if (t.repeat === 'daily') return addDays(d, 1);
+      if (t.repeat === 'weekdays') { let x = addDays(d, 1); while (x.getDay() === 0 || x.getDay() === 6) x = addDays(x, 1); return x; }
+      if (t.repeat === 'weekly') return addDays(d, 7);
+      if (t.repeat === 'monthly') {
+        const x = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+        const last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+        x.setDate(Math.min(anchorDay, last));
+        return x;
+      }
+      return null;
+    };
+    const today = parseKey(todayKey());
+    let d = step(parseKey(t.due || todayKey()));
+    for (let i = 0; d && d <= today && i < 400; i++) d = step(d);
+    return d ? dateKey(d) : '';
+  }
+
+  // Called when a to-do is ticked or unticked. Returns the next date if a new copy was made.
+  function handleRepeat(t) {
+    if (t.done && t.repeat && REPEATS[t.repeat] && !t.nextId) {
+      const nd = nextRepeatDate(t);
+      if (!nd) return '';
+      const copy = {
+        ...t,
+        id: uid(),
+        created: Date.now(),
+        done: false,
+        doneOn: null,
+        due: nd,
+        gEvId: null,
+        gRemindDirty: true,
+        nextId: null,
+        stepId: undefined,
+        weekOf: undefined,
+        steps: Array.isArray(t.steps) ? t.steps.map((s) => ({ id: uid(), title: s.title, done: false })) : [],
+      };
+      state.todos.push(copy);
+      t.nextId = copy.id;
+      return nd;
+    }
+    if (!t.done && t.nextId) {
+      const c = find('todo', t.nextId);
+      if (c && !c.done) {
+        if (c.gEvId) state.google.pendingDeletes.push(c.gEvId);
+        state.todos = state.todos.filter((x) => x.id !== c.id);
+      }
+      t.nextId = null;
+    }
+    return '';
+  }
+
+  /* ================= Habit tracker ================= */
+  const HABIT_IDEAS = ['💧 Drink water', '💊 Vitamins', '🚶 Move for 20 minutes', '📖 Read for 10 minutes', '🧴 Skincare', '📵 No phone in bed'];
+  const habitSheet = $('#habit-sheet');
+  let habitMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const habitDone = (id, key) => Array.isArray(state.habitLog[key]) && state.habitLog[key].includes(id);
+
+  function habitStreak(id) {
+    let n = 0;
+    let misses = 0;
+    let d = new Date();
+    if (!habitDone(id, todayKey())) d = addDays(d, -1);
+    for (let i = 0; i < 400; i++) {
+      if (habitDone(id, dateKey(d))) { n++; misses = 0; } else if (++misses >= 2) break; // one missed day is OK
+      d = addDays(d, -1);
+    }
+    return n;
+  }
+
+  function toggleHabit(id) {
+    const k = todayKey();
+    const list = Array.isArray(state.habitLog[k]) ? state.habitLog[k].slice() : [];
+    const i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1); else list.push(id);
+    state.habitLog[k] = list;
+    grow(i >= 0 ? -1 : 1);
+    save();
+    render();
+    if (habitSheet.open) renderHabitSheet();
+    if (i < 0) {
+      const all = state.habits.every((h) => list.includes(h.id));
+      showToast(all ? 'Every habit done today ✨' : CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+      celebrate(all);
+    }
+  }
+
+  function renderHabitCard() {
+    const card = $('#habit-card');
+    if (!state.habits.length) { card.hidden = true; return; }
+    card.hidden = false;
+    const k = todayKey();
+    const done = state.habits.filter((h) => habitDone(h.id, k)).length;
+    card.innerHTML = `<div class="garden-head"><h2>✨ Habits ${whyBtn('habits')}</h2>
+      <button class="link-btn" type="button" data-habit-open>See month</button></div>
+      <p class="habit-sub">${done} of ${state.habits.length} done today</p>
+      <div class="habit-chips">${state.habits.map((h) => {
+        const on = habitDone(h.id, k);
+        return `<button class="habit-chip${on ? ' on' : ''}" type="button" data-habit="${esc(h.id)}" aria-pressed="${on}"><span class="tick" aria-hidden="true">✓</span>${esc(h.title)}</button>`;
+      }).join('')}</div>`;
+  }
+
+  function renderHabitSheet() {
+    const first = habitMonth;
+    const now = new Date();
+    $('#habit-month-label').textContent = first.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    $('#habit-month-today').hidden = first.getFullYear() === now.getFullYear() && first.getMonth() === now.getMonth();
+    const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const lead = (first.getDay() + 6) % 7; // Monday first
+    const tk = todayKey();
+    const dows = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(startOfWeek(new Date()), i).toLocaleDateString([], { weekday: 'narrow' }));
+    $('#habit-months').innerHTML = state.habits.length ? state.habits.map((h) => {
+      let count = 0;
+      let cells = dows.map((d) => `<span class="hm-dow">${esc(d)}</span>`).join('') + '<span></span>'.repeat(lead);
+      for (let day = 1; day <= daysIn; day++) {
+        const key = dateKey(new Date(first.getFullYear(), first.getMonth(), day));
+        const on = habitDone(h.id, key);
+        if (on) count++;
+        cells += `<span class="hm-day${on ? ' on' : ''}${key === tk ? ' today' : ''}${key > tk ? ' future' : ''}" title="${esc(fmtDate(key, { day: 'numeric', month: 'short' }))}${on ? ': done' : ''}">${day}</span>`;
+      }
+      const streak = habitStreak(h.id);
+      return `<div class="habit-month"><h3>${esc(h.title)}</h3>
+        <p class="habit-sub">${count} of ${daysIn} days${streak ? `\n🔥 ${streak}-day streak` : ''}</p>
+        <div class="hm-grid" role="img" aria-label="${esc(h.title)}: done on ${count} days this month">${cells}</div></div>`;
+    }).join('') : '';
+    const editing = !state.habits.length || !$('#habit-edit').hidden;
+    $('#habit-edit').hidden = !editing;
+    $('#habit-ideas').innerHTML = HABIT_IDEAS.filter((x) => !state.habits.some((h) => h.title === x))
+      .map((x) => `<button class="chip" type="button" data-habit-idea="${esc(x)}">${esc(x)}</button>`).join('');
+  }
+
+  function openHabitSheet(edit) {
+    habitMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    $('#habit-edit').hidden = !edit && state.habits.length > 0;
+    $('#habit-text').value = state.habits.map((h) => h.title).join('\n');
+    renderHabitSheet();
+    habitSheet.showModal();
+  }
+
+  $('#habit-prev').addEventListener('click', () => { habitMonth = new Date(habitMonth.getFullYear(), habitMonth.getMonth() - 1, 1); renderHabitSheet(); });
+  $('#habit-next').addEventListener('click', () => { habitMonth = new Date(habitMonth.getFullYear(), habitMonth.getMonth() + 1, 1); renderHabitSheet(); });
+  $('#habit-month-today').addEventListener('click', () => { habitMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1); renderHabitSheet(); });
+  $('#habit-edit-btn').addEventListener('click', () => {
+    $('#habit-edit').hidden = false;
+    $('#habit-text').value = state.habits.map((h) => h.title).join('\n');
+    renderHabitSheet();
+    $('#habit-text').focus();
+  });
+  $('#habit-ideas').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-habit-idea]');
+    if (!b) return;
+    const t = $('#habit-text');
+    t.value = (t.value.trim() ? `${t.value.trim()}\n` : '') + b.dataset.habitIdea;
+    b.remove();
+  });
+  $('#habit-save').addEventListener('click', () => {
+    const lines = $('#habit-text').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 10);
+    state.habits = lines.map((title) => state.habits.find((h) => h.title === title) || { id: uid(), title: title.slice(0, 50) });
+    save();
+    $('#habit-edit').hidden = state.habits.length > 0;
+    renderHabitSheet();
+    render();
+    showToast(state.habits.length ? 'Habits saved ✨' : 'Habits cleared');
+  });
+  $('#habit-done').addEventListener('click', () => habitSheet.close());
+  habitSheet.addEventListener('click', (e) => { if (e.target === habitSheet) habitSheet.close(); });
+  document.addEventListener('click', (e) => {
+    const h = e.target.closest('[data-habit]');
+    if (h) { toggleHabit(h.dataset.habit); return; }
+    if (e.target.closest('[data-habit-open]')) openHabitSheet(false);
+  });
+
+  /* ================= Month view (Week tab) ================= */
+  let weekMode = 'week';
+  let monthView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+  function renderMonthView() {
+    const first = monthView;
+    const now = new Date();
+    $('#mv-label').textContent = first.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    $('#mv-today').hidden = first.getFullYear() === now.getFullYear() && first.getMonth() === now.getMonth();
+    TITLES.week = 'Month';
+    const gridStart = startOfWeek(first);
+    const lastOfMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    const gridEnd = addDays(startOfWeek(lastOfMonth), 6);
+    const tk = todayKey();
+    let html = '';
+    for (let i = 0; i < 7; i++) html += `<div class="cal-dow" aria-hidden="true">${esc(addDays(gridStart, i).toLocaleDateString([], { weekday: 'narrow' }))}</div>`;
+    for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) {
+      const key = dateKey(d);
+      const items = dayEventItems(key);
+      const todos = allTodos().filter((t) => t.due === key && !t.done).length;
+      const dots = items.slice(0, 4).map(() => '<i></i>').join('');
+      const label = `${d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}: ${plural(items.length, 'event')}${todos ? `, ${plural(todos, 'to-do')}` : ''}`;
+      html += `<button type="button" class="mv-day${d.getMonth() !== first.getMonth() ? ' out' : ''}${key === tk ? ' today' : ''}" data-mday="${key}" aria-label="${esc(label)}">
+        <span class="mv-num">${d.getDate()}</span><span class="mv-dots">${dots}</span>${todos ? `<span class="mv-todo">✓${todos}</span>` : ''}</button>`;
+    }
+    $('#mv-cal').innerHTML = html;
+  }
+
+  $('.week-seg').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-wmode]');
+    if (!b) return;
+    weekMode = b.dataset.wmode;
+    if (weekMode === 'month') monthView = new Date(weekStart.getFullYear(), weekStart.getMonth(), 1);
+    render();
+  });
+  $('#mv-prev').addEventListener('click', () => { monthView = new Date(monthView.getFullYear(), monthView.getMonth() - 1, 1); render(); });
+  $('#mv-next').addEventListener('click', () => { monthView = new Date(monthView.getFullYear(), monthView.getMonth() + 1, 1); render(); });
+  $('#mv-today').addEventListener('click', () => { monthView = new Date(new Date().getFullYear(), new Date().getMonth(), 1); render(); });
+  $('#mv-cal').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mday]');
+    if (!b) return;
+    weekMode = 'week';
+    weekStart = startOfWeek(parseKey(b.dataset.mday));
+    render();
+    const el = document.getElementById(`day-${b.dataset.mday}`);
+    if (el) el.scrollIntoView({ block: 'start' });
+  });
+
+  /* ================= Year in pixels (Journal) ================= */
+  function renderPixels() {
+    const year = new Date().getFullYear();
+    const tk = todayKey();
+    let html = '<span></span>';
+    for (let d = 1; d <= 31; d++) html += `<span class="px-head">${d % 5 === 0 || d === 1 ? d : ''}</span>`;
+    let logged = 0;
+    for (let mo = 0; mo < 12; mo++) {
+      html += `<span class="px-month">${esc(new Date(year, mo, 1).toLocaleDateString([], { month: 'narrow' }))}</span>`;
+      for (let d = 1; d <= 31; d++) {
+        const date = new Date(year, mo, d);
+        if (date.getMonth() !== mo) { html += '<span class="px none"></span>'; continue; }
+        const key = dateKey(date);
+        const mood = moodOf(journalEntry(key));
+        if (mood) logged++;
+        html += `<span class="px${mood ? ` m${mood}` : ''}${key > tk ? ' future' : ''}"${mood ? ` title="${esc(fmtDate(key, { day: 'numeric', month: 'short' }))}: ${MOODS[mood][1]}"` : ''}></span>`;
+      }
+    }
+    $('#pixels').innerHTML = html;
+    $('#pixels').setAttribute('aria-label', `Year in pixels for ${year}: mood logged on ${plural(logged, 'day')}`);
+    $('#pixels-year').textContent = String(year);
+  }
+
+  const QUICK_TIP = 'Tip: type “Call Mum Friday 3pm” or “Bins every Thursday” and the date fills in for you.';
+  $('#quick-tip').textContent = QUICK_TIP;
+  $('#quick-title').addEventListener('input', () => {
+    const v = $('#quick-title').value.trim();
+    const q = v ? parseQuick(v) : null;
+    const d = q ? describeParsed(q) : '';
+    $('#quick-tip').textContent = d ? `${d}\n✍️ ${q.title}` : QUICK_TIP;
+  });
+
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
   const ENERGY = { 1: '🪫 Low energy', 2: '🔋 Okay energy', 3: '⚡ High energy' };
@@ -2487,6 +2851,7 @@
     const b = addDays(new Date(), -15);
     $('#mood-axis').innerHTML = [a, b].map((d) => `<span>${esc(d.toLocaleDateString([], { day: 'numeric', month: 'short' }))}</span>`).join('') + '<span>Today</span>';
     $('#mood-legend').hidden = !withPhase;
+    renderPixels();
 
     // Patterns
     const keys = Object.keys(state.journal).filter((k) => moodOf(journalEntry(k)));
@@ -2928,7 +3293,7 @@
 
   function gBody(ev) {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const RULES = { daily: 'RRULE:FREQ=DAILY', weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'RRULE:FREQ=WEEKLY' };
+    const RULES = { daily: 'RRULE:FREQ=DAILY', weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'RRULE:FREQ=WEEKLY', monthly: 'RRULE:FREQ=MONTHLY' };
     const recurrence = RULES[ev.repeat] ? [RULES[ev.repeat]] : [];
     const reminders = ev.remind !== undefined && ev.remind !== ''
       ? { useDefault: false, overrides: [{ method: 'popup', minutes: Number(ev.remind) }] }

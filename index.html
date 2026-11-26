@@ -62,6 +62,7 @@
           <ul class="routine-list" id="routine-list"></ul>
         </section>
         <button class="btn primary wide journal-prompt" type="button" id="today-journal" hidden>📓 How did today go?</button>
+        <section class="garden-card habit-card" id="habit-card" hidden></section>
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
         <section class="garden-card" id="garden-card" hidden></section>
 
@@ -92,16 +93,34 @@
 
       <!-- WEEK -->
       <section id="view-week" class="view" aria-labelledby="screen-title">
-        <div class="week-nav">
-          <button class="icon-btn" type="button" id="week-prev" aria-label="Previous week">‹</button>
-          <div class="week-label">
-            <span id="week-range"></span>
-            <button class="link-btn" type="button" id="week-today">Jump to this week</button>
-          </div>
-          <button class="icon-btn" type="button" id="week-next" aria-label="Next week">›</button>
+        <div class="seg week-seg" role="tablist" aria-label="Calendar view">
+          <button type="button" role="tab" data-wmode="week" class="is-active">Week</button>
+          <button type="button" role="tab" data-wmode="month">Month</button>
         </div>
-        <div id="week-days"></div>
-        <button class="btn ghost wide print-btn" type="button" id="print-week">🖨️ Print this week</button>
+        <div id="week-mode">
+          <div class="week-nav">
+            <button class="icon-btn" type="button" id="week-prev" aria-label="Previous week">‹</button>
+            <div class="week-label">
+              <span id="week-range"></span>
+              <button class="link-btn" type="button" id="week-today">Jump to this week</button>
+            </div>
+            <button class="icon-btn" type="button" id="week-next" aria-label="Next week">›</button>
+          </div>
+          <div id="week-days"></div>
+          <button class="btn ghost wide print-btn" type="button" id="print-week">🖨️ Print this week</button>
+        </div>
+        <div id="month-mode" hidden>
+          <div class="week-nav">
+            <button class="icon-btn" type="button" id="mv-prev" aria-label="Previous month">‹</button>
+            <div class="week-label">
+              <span id="mv-label"></span>
+              <button class="link-btn" type="button" id="mv-today">Back to this month</button>
+            </div>
+            <button class="icon-btn" type="button" id="mv-next" aria-label="Next month">›</button>
+          </div>
+          <div class="cal mv-cal" id="mv-cal"></div>
+          <p class="tip">Dots are events, ✓ shows to-dos due. Tap a day to see it in Week.</p>
+        </div>
       </section>
 
       <!-- GOALS -->
@@ -120,7 +139,7 @@
           <input type="text" id="quick-title" placeholder="Add a to-do or reminder…" maxlength="120" aria-label="New to-do">
           <button class="btn primary" type="submit">Add</button>
         </form>
-        <p class="tip">Tap a to-do to give it a date and time ⏰</p>
+        <p class="tip quick-tip" id="quick-tip"></p>
 
         <div class="chips" role="tablist" aria-label="Filter to-dos">
           <button class="chip is-active" type="button" data-filter="active">To do <span id="count-active"></span></button>
@@ -218,6 +237,15 @@
           <p class="tip chart-tip">Taller bar = better mood. Tap a bar to open that day.</p>
         </div>
 
+        <div class="section-head"><h2>🌈 Year in pixels <span id="pixels-year"></span> <button class="why-btn" type="button" data-why="pixels" aria-label="Why this helps">💡</button></h2></div>
+        <div class="chart-card">
+          <div class="pixels" id="pixels" role="img"></div>
+          <div class="legend pixel-legend" aria-hidden="true">
+            <span>😞 Awful</span><i class="px m1"></i><i class="px m2"></i><i class="px m3"></i><i class="px m4"></i><i class="px m5"></i><span>😄 Great</span>
+          </div>
+          <p class="tip chart-tip">Each square is one day, coloured by your mood. Darker means a better day.</p>
+        </div>
+
         <div class="section-head"><h2>🔍 Patterns</h2></div>
         <div id="journal-patterns"></div>
 
@@ -264,6 +292,7 @@
         <button class="add-tile" type="button" data-addwhat="journal"><b aria-hidden="true">📓</b>Journal</button>
         <button class="add-tile" type="button" data-addwhat="goal"><b aria-hidden="true">🎯</b>Goal</button>
         <button class="add-tile" type="button" data-addwhat="period"><b aria-hidden="true">🩸</b>Period started</button>
+        <button class="add-tile" type="button" data-addwhat="habits"><b aria-hidden="true">✨</b>Habits<small>daily tracker</small></button>
         <button class="add-tile" type="button" data-addwhat="plant"><b aria-hidden="true">🪴</b>Plant</button>
         <button class="add-tile" type="button" data-addwhat="plants"><b aria-hidden="true">💧</b>My plants<small>water &amp; manage</small></button>
       </div>
@@ -330,6 +359,7 @@
           <option value="daily">Every day</option>
           <option value="weekdays">Weekdays (Mon–Fri)</option>
           <option value="weekly">Every week</option>
+          <option value="monthly">Every month</option>
         </select>
       </label>
 
@@ -585,6 +615,34 @@ It never dies, it just waits for you 💚</p>
         <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Habit tracker -->
+  <dialog id="habit-sheet" class="sheet" aria-labelledby="habit-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="habit-title">✨ Habits <button class="why-btn" type="button" data-why="habits" aria-label="Why this helps">💡</button></h2>
+      <div class="week-nav">
+        <button class="icon-btn" type="button" id="habit-prev" aria-label="Previous month">‹</button>
+        <div class="week-label">
+          <span id="habit-month-label"></span>
+          <button class="link-btn" type="button" id="habit-month-today">Back to this month</button>
+        </div>
+        <button class="icon-btn" type="button" id="habit-next" aria-label="Next month">›</button>
+      </div>
+      <div id="habit-months"></div>
+      <div id="habit-edit" hidden>
+        <label class="field">
+          <span>Your habits, one per line</span>
+          <textarea id="habit-text" rows="5" placeholder="💧 Drink water"></textarea>
+        </label>
+        <p class="hint">Start small: 2 to 4 habits is plenty. Ideas:</p>
+        <div class="chips" id="habit-ideas"></div>
+        <button class="btn primary wide" type="button" id="habit-save">Save habits</button>
+      </div>
+      <button class="btn ghost wide" type="button" id="habit-edit-btn">✏️ Edit habits</button>
+      <button class="btn ghost wide" type="button" id="habit-done">Done</button>
+    </div>
   </dialog>
 
   <!-- Journal entry -->

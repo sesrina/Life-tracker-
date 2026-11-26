@@ -598,6 +598,60 @@ html.themed .garden-card { background: linear-gradient(135deg, var(--card-a), va
 .plant-how { white-space: pre-line; }
 #garden-every { width: 100%; min-height: 56px; padding: 0 16px; border-radius: 16px; border: 2px solid var(--line); background: var(--bg); font: inherit; font-size: calc(17px * var(--fs, 1)); color: inherit; }
 
+.quick-tip { white-space: pre-line; }
+
+/* ---------- Habits, month view, year in pixels ---------- */
+.week-seg { margin: 0 0 14px; }
+.habit-sub { margin: 0 0 10px; font-weight: 700; white-space: pre-line; }
+.habit-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.habit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 16px 0 8px;
+  border: none;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: calc(15px * var(--fs, 1));
+}
+.habit-chip .tick { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; border: 3px solid var(--accent); color: transparent; font-weight: 800; }
+.habit-chip.on .tick { background: var(--accent); color: var(--accent-ink); }
+.habit-month { padding: 14px 0; border-bottom: 2px solid var(--line); }
+.habit-month h3 { margin: 0 0 2px; font-size: calc(17px * var(--fs, 1)); font-weight: 800; }
+.hm-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.hm-dow { text-align: center; font-size: calc(12px * var(--fs, 1)); font-weight: 800; color: var(--muted); }
+.hm-day { aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; background: var(--bg); font-size: calc(13px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+.hm-day.on { background: var(--accent); color: var(--accent-ink); }
+.hm-day.today { box-shadow: 0 0 0 2px var(--ink); }
+.hm-day.future { opacity: 0.45; }
+#habit-edit { margin-top: 14px; }
+#habit-ideas { margin-bottom: 12px; }
+.mv-cal { gap: 4px; }
+.mv-day { min-height: 56px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; border: none; border-radius: 12px; background: transparent; color: var(--ink); font-weight: 700; }
+.mv-day.out { opacity: 0.35; }
+.mv-day.today { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+.mv-num { font-size: calc(15px * var(--fs, 1)); }
+.mv-dots { display: flex; gap: 2px; min-height: 6px; }
+.mv-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.mv-todo { font-size: calc(11px * var(--fs, 1)); font-weight: 800; color: var(--muted); }
+.pixels { display: grid; grid-template-columns: 16px repeat(31, minmax(0, 1fr)); gap: 2px; align-items: center; }
+.px { aspect-ratio: 1; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--line); }
+.px.none { box-shadow: none; }
+.px.future { opacity: 0.35; }
+.px.m1 { background: color-mix(in srgb, var(--ch-mood) 20%, var(--card)); box-shadow: none; }
+.px.m2 { background: color-mix(in srgb, var(--ch-mood) 40%, var(--card)); box-shadow: none; }
+.px.m3 { background: color-mix(in srgb, var(--ch-mood) 60%, var(--card)); box-shadow: none; }
+.px.m4 { background: color-mix(in srgb, var(--ch-mood) 80%, var(--card)); box-shadow: none; }
+.px.m5 { background: var(--ch-mood); box-shadow: none; }
+.px-head { text-align: center; font-size: calc(9px * var(--fs, 1)); font-weight: 700; color: var(--muted); }
+.px-month { font-size: calc(11px * var(--fs, 1)); font-weight: 800; color: var(--muted); }
+.pixel-legend { align-items: center; gap: 4px; }
+.pixel-legend .px { display: inline-block; width: 14px; height: 14px; }
+#pixels-year { color: var(--muted); }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {
@@ -1395,7 +1449,7 @@ html.themed .tab.is-active, html.themed .btn-add { color: var(--accent-text, var
   :root { --bg: #fff; --card: #fff; --ink: #222; --muted: #555; --line: #ccc; }
   body { background: #fff; color: #222; font-size: calc(11px * var(--fs, 1)); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
-  .hello-card::before, .fab, .seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
+  .hello-card::before, .fab, .seg, .week-seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
   .app { max-width: none; padding: 0; }
   .app-header { padding: 0 0 4px; }
   h1 { font-size: calc(20px * var(--fs, 1)); }

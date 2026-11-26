@@ -27,6 +27,11 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Six looks** in ⚙️ → Look: 🍒 Cherry (cream, cherry, wine and gold with a leopard trim), 🌸 Soft pink, 🤍 Clean girl, 🍵 Matcha, 🦋 Y2K and 🖤 Midnight. All are contrast-checked for easy reading
 - **One fact per line**: details are stacked instead of squeezed together with dots
 - **Plant care**: add your plants (tomato, basil, rosemary, string of hearts, succulents, pothos, monstera, snake plant, peace lily, fern, orchid and more), each with its own watering schedule and care tip. Outdoor pots in sun or wind get a shorter schedule. Today shows what needs water, Week shows watering days, and you can get a Google Calendar notification on watering days. Add your own photo of each plant (camera or photo library); photos are shrunk to save space and included in backups
+- **Month view**: switch the Week tab to Month to see the whole month at a glance
+- **Habit tracker**: daily habits to tick off on Today, with a monthly grid and forgiving streaks (+ → ✨ Habits)
+- **Year in Pixels**: your whole year of moods as coloured squares in the Journal
+- **Smart typing**: type "Call Mum Friday 3pm" or "Bins every Thursday" and the date, time and repeat fill in for you
+- **Repeating to-dos**: every day, weekdays, every week or every month. Tick one off and the next one appears
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 
