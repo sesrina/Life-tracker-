@@ -584,15 +584,16 @@
 
     const nm = state.profile.name;
     $('#today-greeting').textContent = nm ? greeting.replace(/ (\S+)$/, `, ${nm} $1`) : greeting;
-    let summary;
-    if (!events.length && !todos.length) summary = 'Nothing planned yet — enjoy the calm 🍵';
+    // One fact per line, so it's quick to scan
+    let lines;
+    if (!events.length && !todos.length) lines = ['Nothing planned yet. Enjoy the calm 🍵'];
     else {
-      const parts = [];
-      parts.push(`${events.length} event${events.length === 1 ? '' : 's'}`);
-      parts.push(todos.length ? `${done} of ${todos.length} to-dos done` : 'no to-dos');
-      summary = parts.join(' · ') + (todos.length && done === todos.length ? ' 🎉' : '');
+      lines = [
+        `🗓️ ${plural(events.length, 'event')}`,
+        todos.length ? `✅ ${done} of ${todos.length} to-dos done${done === todos.length ? ' 🎉' : ''}` : '✅ No to-dos',
+      ];
     }
-    $('#today-summary').textContent = summary;
+    $('#today-summary').innerHTML = lines.map((l) => `<span>${esc(l)}</span>`).join('');
     $('#today-progress').style.width = todos.length ? `${Math.round((done / todos.length) * 100)}%` : '0%';
 
     $('#today-events').innerHTML = events.length
