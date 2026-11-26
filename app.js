@@ -80,7 +80,7 @@
         salt: typeof lock.salt === 'string' ? lock.salt : '',
       },
       backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
-      look: d.look === 'soft' ? 'soft' : 'cherry',
+      look: ['cherry', 'soft', 'clean', 'matcha', 'y2k', 'midnight'].includes(d.look) ? d.look : 'cherry',
       reading: {
         size: d.reading && ['m', 'l', 'xl'].includes(d.reading.size) ? d.reading.size : 'm',
         font: d.reading && ['nunito', 'verdana', 'atkinson'].includes(d.reading.font) ? d.reading.font : 'nunito',
@@ -318,9 +318,9 @@
     const until = diffDays(tk, pred.nextStart);
     const status = until === 0 ? 'Period may start today' : `Next period in ~${plural(until, 'day')}`;
     let sub = `Expected around ${fmtDate(pred.nextStart, { weekday: 'short', day: 'numeric', month: 'short' })}`;
-    if (pred.fertile.has(tk)) sub += ' · in your fertile window (estimate)';
+    if (pred.fertile.has(tk)) sub += '\nIn your fertile window (estimate)';
     if (!st.cycles.length) sub += '. Based on a typical 28-day cycle until you log another period.';
-    return { num: day, label: 'Cycle day', p, short: `Cycle day ${day} · ${status.charAt(0).toLowerCase()}${status.slice(1)}`, status, sub };
+    return { num: day, label: 'Cycle day', p, short: `Cycle day ${day}\n${status}`, status, sub };
   }
 
   /* ================= Item templates ================= */
@@ -386,8 +386,8 @@
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const dur = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
-    const nowRow = () => `<li class="tl-now"><span>Now · ${esc(fmtTime(`${pad(now.getHours())}:${pad(now.getMinutes())}`))}</span></li>`;
-    const gap = (m) => `<li class="tl-gap">☁️ Free time · ${dur(m)}</li>`;
+    const nowRow = () => `<li class="tl-now"><span>Now: ${esc(fmtTime(`${pad(now.getHours())}:${pad(now.getMinutes())}`))}</span></li>`;
+    const gap = (m) => `<li class="tl-gap">☁️ ${dur(m)} free</li>`;
     const out = items.filter((x) => !x.time).map((x) => x.html);
     let prevEnd = null;
     let nowDone = false;
@@ -402,7 +402,7 @@
     if (bed !== null && bed > prevEnd) {
       if (bed - prevEnd >= 30) out.push(gap(bed - prevEnd));
       if (!nowDone && nowMin < bed) { out.push(nowRow()); nowDone = true; }
-      out.push(`<li class="tl-bed">🛏️ Lights out · ${esc(fmtTime(state.routine.bed))}</li>`);
+      out.push(`<li class="tl-bed">🛏️ Lights out at ${esc(fmtTime(state.routine.bed))}</li>`);
     }
     if (!nowDone) out.push(nowRow());
     return out.join('');
@@ -419,8 +419,8 @@
   function gtaskHTML(t) {
     const today = todayKey();
     const overdue = !t.done && t.due && t.due < today;
-    const where = `Google Tasks${t.listName && t.listName !== 'My Tasks' ? ` · ${t.listName}` : ''}`;
-    const meta = (t.due ? `📅 ${relDay(t.due)}${overdue ? ' · overdue' : ''} · ` : '') + where;
+    const where = `Google Tasks${t.listName && t.listName !== 'My Tasks' ? `: ${t.listName}` : ''}`;
+    const meta = (t.due ? `📅 ${relDay(t.due)}${overdue ? ' (overdue)' : ''}\n` : '') + where;
     const link = typeof t.link === 'string' && t.link.startsWith('https://') ? t.link : '';
     return `<li class="item todo gtask${t.done ? ' done' : ''}${overdue ? ' overdue' : ''}" data-kind="gtask" data-id="${esc(t.id)}">
       <button class="check" type="button" data-action="toggle" aria-pressed="${t.done ? 'true' : 'false'}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}">
@@ -439,10 +439,10 @@
     const overdue = !t.done && t.due && t.due < today;
     let meta = '';
     if (t.due) {
-      meta = (t.time ? '⏰ ' : '📅 ') + relDay(t.due) + (t.time ? ' · ' + fmtTime(t.time) : '') + (overdue ? ' · overdue' : '');
+      meta = (t.time ? '⏰ ' : '📅 ') + relDay(t.due) + (t.time ? ', ' + fmtTime(t.time) : '') + (overdue ? '\nOverdue' : '');
     }
     if (Array.isArray(t.steps) && t.steps.length) {
-      meta = (meta ? `${meta} · ` : '') + `👣 ${t.steps.filter((s) => s.done).length}/${t.steps.length} steps`;
+      meta = (meta ? `${meta}\n` : '') + `👣 ${t.steps.filter((s) => s.done).length}/${t.steps.length} steps`;
     }
     return `<li class="item todo${t.done ? ' done' : ''}${overdue ? ' overdue' : ''}" data-kind="todo" data-id="${esc(t.id)}">
       <button class="check" type="button" data-action="toggle" aria-pressed="${t.done ? 'true' : 'false'}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}">
@@ -505,7 +505,7 @@
     card.classList.toggle('is-done', all);
     $('#routine-title').textContent = slot === 'morning' ? '☀️ Morning routine' : '🌙 Night routine';
     $('#routine-sub').textContent = (all ? 'All done, well done! 🎉' : `${count} of ${steps.length} done`) +
-      (streak ? ` · 🔥 ${streak}-day streak` : '');
+      (streak ? `\n🔥 ${streak}-day streak` : '');
     const meta = [];
     const anchor = slot === 'morning' ? state.routine.anchorM : state.routine.anchorN;
     if (anchor) meta.push(`🔗 ${anchor}`);
@@ -611,7 +611,7 @@
     more.hidden = !(collapsed || (showAllToday && pending.length > 3));
     more.textContent = collapsed ? `Show ${todos.length - 3} more` : 'Just show the next 3';
     $('#focus-start').hidden = !pending.length;
-    $('#focus-start').textContent = `🎯 Focus mode · ${plural(pending.length, 'thing')} to do`;
+    $('#focus-start').textContent = `🎯 Focus mode\n${plural(pending.length, 'thing')} to do`;
     renderUpNext();
     renderPlantChip();
     renderSnack();
@@ -680,7 +680,7 @@
         .map((k) => {
           const [a, b] = r[k];
           const days = a === b ? `Day ${a}` : `Days ${a}–${b}`;
-          return `<li class="ph-${k}${k === cur.phase ? ' is-current' : ''}"><span class="dot"></span>${PHASES[k].emoji} ${PHASES[k].name}${k === cur.phase ? ' · now' : ''}<span class="days">${days}</span></li>`;
+          return `<li class="ph-${k}${k === cur.phase ? ' is-current' : ''}"><span class="dot"></span>${PHASES[k].emoji} ${PHASES[k].name}${k === cur.phase ? ' (now)' : ''}<span class="days">${days}</span></li>`;
         }).join('');
     }
 
@@ -738,8 +738,8 @@
         : `${fmtDate(p.start, { day: 'numeric', month: 'short' })} – ${fmtDate(p.end, { day: 'numeric', month: 'short' })}`;
       const year = p.start.slice(0, 4) !== tk.slice(0, 4) ? ` ${p.start.slice(0, 4)}` : '';
       let meta = plural(p.length, 'day');
-      if (idx === 0) meta += ` · current cycle, day ${diffDays(p.start, tk) + 1}`;
-      else meta += ` · ${diffDays(p.start, arr[idx - 1].start)}-day cycle`;
+      if (idx === 0) meta += `\nCurrent cycle, day ${diffDays(p.start, tk) + 1}`;
+      else meta += `\n${diffDays(p.start, arr[idx - 1].start)}-day cycle`;
       return `<li class="item"><button class="item-main" type="button" data-day="${p.start}">
         <span class="item-title">🩸 ${esc(range + year)}</span><span class="item-meta">${esc(meta)}</span></button></li>`;
     });
@@ -1160,10 +1160,10 @@
     const e = state.cycle.days[key] || {};
     const rel = relDay(key);
     const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
-    $('#day-title').textContent = ['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? `${rel} · ${long}` : long;
+    $('#day-title').textContent = ['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? `${rel}\n${long}` : long;
     const ph = cycleModel(key).phaseFor(key);
     $('#day-phase').textContent = ph
-      ? `${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} phase · cycle day ${ph.day}${key > todayKey() ? ' (estimate)' : ''}`
+      ? `${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} phase\nCycle day ${ph.day}${key > todayKey() ? ' (estimate)' : ''}`
       : '';
     $$('input[name="flow"]').forEach((r) => { r.checked = r.value === (e.flow || ''); });
     const syms = Array.isArray(e.symptoms) ? e.symptoms : [];
@@ -1238,11 +1238,11 @@
     const layer = document.createElement('div');
     layer.className = 'confetti';
     layer.setAttribute('aria-hidden', 'true');
-    const cherry = state.look !== 'soft';
-    const colours = cherry
-      ? ['var(--accent)', 'var(--gold, #b88a3b)', '#2a1418', 'var(--pink)', '#c9c9d1', 'var(--butter)']
+    const themed = state.look !== 'soft';
+    const colours = themed
+      ? ['var(--accent)', 'var(--ink)', 'var(--pink)', 'var(--mint)', 'var(--sky)', 'var(--butter)']
       : ['var(--ch-mood)', 'var(--ch-follicular)', 'var(--ch-ovulation)', 'var(--ch-luteal)', 'var(--mint)', 'var(--peach)'];
-    const emojis = cherry ? ['🍒', '💋', '✨', '🎀', '💎'] : ['✨', '💖', '🌸', '⭐', '🎉'];
+    const emojis = (LOOKS[state.look] || LOOKS.cherry).confetti;
     const n = big ? 64 : 26;
     for (let i = 0; i < n; i++) {
       const s = document.createElement('span');
@@ -1284,7 +1284,7 @@
     el.hidden = !u;
     if (!u) return;
     el.classList.toggle('is-soon', u.soon);
-    el.innerHTML = `<span class="upnext-label">⏰ Up next ${whyBtn('upnext')}</span><span class="upnext-title">${esc(u.title)}</span><span class="upnext-when">${esc(u.when)} · ${esc(u.at)}</span>`;
+    el.innerHTML = `<span class="upnext-label">⏰ Up next ${whyBtn('upnext')}</span><span class="upnext-title">${esc(u.title)}</span><span class="upnext-when">${esc(u.when.charAt(0).toUpperCase() + u.when.slice(1))}\nat ${esc(u.at)}</span>`;
   }
   setInterval(() => { if (currentView === 'today' && !document.hidden) renderUpNext(); }, 30 * 1000);
 
@@ -1321,7 +1321,7 @@
             id: t.id,
             isG: !!t.isG,
             title: t.title,
-            meta: t.due ? `${relDay(t.due)}${t.time ? ` · ${fmtTime(t.time)}` : ''}${t.due < tk ? ' · overdue' : ''}` : '',
+            meta: t.due ? `${relDay(t.due)}${t.time ? `, ${fmtTime(t.time)}` : ''}${t.due < tk ? '\nOverdue' : ''}` : '',
           });
         }
       });
@@ -1603,7 +1603,7 @@
     const thirsty = p.last && diffDays(p.last, todayKey()) >= 3;
     const pct = next ? Math.round(((p.xp - STAGES[i][0]) / (next[0] - STAGES[i][0])) * 100) : 100;
     $('#plant-chip').innerHTML = `<span class="plant-emoji" aria-hidden="true">${thirsty ? '🥀' : emoji}</span>
-      <span class="plant-info"><span>${esc(p.name)} · ${thirsty ? 'missed you! 💧' : label}</span>
+      <span class="plant-info"><span class="plant-name">${esc(p.name)}\n<small>${thirsty ? 'Missed you! 💧' : label}</small></span>
       <span class="plant-bar" aria-hidden="true"><i style="width:${pct}%"></i></span>
       <small>${next ? `${next[0] - p.xp} to ${next[2].toLowerCase()} ${next[1]}` : 'Fully grown! 🌺'}</small></span>`;
     $('#plant-chip').setAttribute('aria-label', `Your plant ${p.name}: ${label}, ${p.xp} growth points`);
@@ -1615,7 +1615,7 @@
     const i = plantStage(p.xp);
     $('#plant-big').textContent = STAGES[i][1];
     $('#plant-name').value = p.name;
-    $('#plant-status').textContent = `${STAGES[i][2]} · ${p.xp} growth points`;
+    $('#plant-status').textContent = `${STAGES[i][2]}\n${p.xp} growth points`;
     $('#plant-stages').innerHTML = STAGES.map((s, j) => `<span class="${j <= i ? 'got' : ''}" title="${esc(s[2])}">${s[1]}</span>`).join('');
     plantSheet.showModal();
   });
@@ -1675,7 +1675,7 @@
           <div class="goal-text"><h3>${esc(g.title)}</h3>${g.why ? `<p class="goal-why">💖 ${esc(g.why)}</p>` : ''}</div>
           <button class="link-btn" type="button" data-goal-edit="${esc(g.id)}">Edit</button></div>
         <div class="goal-progress" aria-hidden="true"><i style="width:${pct}%"></i></div>
-        <p class="goal-count">${g.steps.length ? `${doneN} of ${g.steps.length} steps${pct === 100 ? ' · goal reached! 🏆' : ''}` : 'Add some small steps with Edit'}</p>
+        <p class="goal-count">${g.steps.length ? `${doneN} of ${g.steps.length} steps${pct === 100 ? '\nGoal reached! 🏆' : ''}` : 'Add some small steps with Edit'}</p>
         <ul class="goal-steps">${g.steps.map((s) => {
           const linked = linkedTodo(s.id);
           const onList = linked && !linked.done;
@@ -1955,13 +1955,39 @@
   $('#reading-spacing').addEventListener('change', (e) => { state.reading.spacing = e.target.checked; save(); applyReading(); });
   applyReading();
 
-  // Look: cherry (default) or soft pink
+  // Looks: colours, heading font, tab icons and confetti for each aesthetic
+  const LOOKS = {
+    cherry: { bg: '#f7f1ec', font: 'Playfair+Display:wght@700;800', icons: ['🍒', '💎', '💋'], confetti: ['🍒', '💋', '✨', '🎀', '💎'] },
+    soft: { bg: '#fde8ef', font: '', icons: ['🌼', '🎯', '💜'], confetti: ['✨', '💖', '🌸', '⭐', '🎉'] },
+    clean: { bg: '#f6f2ec', font: 'DM+Serif+Display', icons: ['☕', '🤍', '🕊️'], confetti: ['🤍', '✨', '☕', '🕊️', '🌾'] },
+    matcha: { bg: '#f2f4ec', font: '', icons: ['🍵', '🌿', '🌱'], confetti: ['🍵', '🌿', '✨', '🍃', '🌼'] },
+    y2k: { bg: '#f4f6fb', font: 'Unbounded:wght@600;700', icons: ['🦋', '💿', '💖'], confetti: ['🦋', '💖', '✨', '💿', '⭐'] },
+    midnight: { bg: '#0e0d12', font: 'DM+Serif+Display', icons: ['🌙', '⭐', '🖤'], confetti: ['🖤', '✨', '🌙', '⭐', '💜'] },
+  };
   function applyLook() {
-    const cherry = state.look !== 'soft';
-    document.documentElement.classList.toggle('theme-cherry', cherry);
+    const look = LOOKS[state.look] ? state.look : 'cherry';
+    const L = LOOKS[look];
+    const root = document.documentElement;
+    root.setAttribute('data-look', look);
+    root.classList.toggle('themed', look !== 'soft');
+    if (L.font && !document.getElementById(`font-${look}`)) {
+      const l = document.createElement('link');
+      l.id = `font-${look}`;
+      l.rel = 'stylesheet';
+      l.href = `https://fonts.googleapis.com/css2?family=${L.font}&display=swap`;
+      document.head.appendChild(l);
+    }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', cherry ? '#f7f1ec' : '#fde8ef');
-    $$('#look-pick [data-look]').forEach((b) => b.classList.toggle('is-active', b.dataset.look === state.look));
+    if (meta) meta.setAttribute('content', L.bg);
+    ['today', 'goals', 'me'].forEach((v, i) => {
+      const el = document.querySelector(`.tab[data-view="${v}"] .tab-icon`);
+      if (el) el.textContent = L.icons[i];
+    });
+    $$('#look-pick [data-look]').forEach((b) => {
+      const on = b.dataset.look === look;
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
   }
   $('#look-pick').addEventListener('click', (e) => {
     const b = e.target.closest('[data-look]');
@@ -2003,13 +2029,13 @@
   function entryContext(key) {
     const parts = [];
     const ph = cycleModel(key).phaseFor(key);
-    if (ph) parts.push(`${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} · cycle day ${ph.day}`);
+    if (ph) parts.push(`${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name}, cycle day ${ph.day}`);
     const n = dayEvents(key).length;
     if (n) parts.push(plural(n, 'event'));
     const r = routineDay(key);
     if (r.morningAll) parts.push('☀️ routine done');
     if (r.nightAll) parts.push('🌙 routine done');
-    return parts.join(' · ');
+    return parts.join('\n');
   }
 
   function openJournal(key) {
@@ -2017,7 +2043,7 @@
     const e = journalEntry(key) || {};
     const rel = relDay(key);
     const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
-    $('#journal-title').textContent = ['Today', 'Yesterday'].includes(rel) ? `${rel} · ${long}` : long;
+    $('#journal-title').textContent = ['Today', 'Yesterday'].includes(rel) ? `${rel}\n${long}` : long;
     $('#journal-context').textContent = entryContext(key);
     $$('input[name="jmood"]').forEach((r) => { r.checked = Number(r.value) === Number(e.mood); });
     $$('input[name="jenergy"]').forEach((r) => { r.checked = Number(r.value) === Number(e.energy); });
@@ -2069,7 +2095,7 @@
     return `<li class="item"><button class="item-main" type="button" data-jday="${key}">
       ${label ? `<span class="lookback-label">${esc(label)}</span>` : ''}
       <span class="item-title">${m ? `${MOODS[m][0]} ${MOODS[m][1]}` : '📝 Entry'}</span>
-      <span class="item-meta">${esc(meta.join(' · '))}</span>
+      <span class="item-meta">${esc(meta.join('\n'))}</span>
       ${text ? `<span class="excerpt">${esc(text)}</span>` : ''}
     </button></li>`;
   }
@@ -2809,8 +2835,8 @@
     let text;
     if (syncing) text = '🗓️ Syncing with Google…';
     else if (g.needsReauth) text = '🗓️ Tap to allow Google Tasks';
-    else if (!getToken()) text = `🗓️ Tap to sync with Google${waiting ? ` · ${waiting} waiting to send` : ''}`;
-    else text = `🗓️ Google synced ${ago(g.lastSync)}${waiting ? ` · ${waiting} waiting` : ''} · tap to refresh`;
+    else if (!getToken()) text = `🗓️ Tap to sync with Google${waiting ? `\n${waiting} waiting to send` : ''}`;
+    else text = `🗓️ Google synced ${ago(g.lastSync)}${waiting ? `, ${waiting} waiting` : ''}\nTap to refresh`;
     btn.textContent = text;
     btn.disabled = syncing;
   }
@@ -2821,8 +2847,8 @@
     let status;
     if (!g.clientId) status = "Not set up yet. Follow the setup steps, then paste your Client ID below.";
     else if (!g.connected) status = 'Ready to connect.';
-    else if (live) status = `Connected ✅ · synced ${ago(g.lastSync)}`;
-    else status = 'Connected ✅ · Google signs you out after about an hour, so tap Sync now to refresh.';
+    else if (live) status = `Connected ✅\nSynced ${ago(g.lastSync)}`;
+    else status = 'Connected ✅\nGoogle signs you out after about an hour, so tap Sync now to refresh.';
     if (g.connected && g.tasksOff) status += ' Google Tasks is off: turn on the Tasks API in Google Cloud.';
     if (g.connected && g.needsReauth) status += ' Tap Sync now to allow Google Tasks.';
     $('#g-status').textContent = status;
