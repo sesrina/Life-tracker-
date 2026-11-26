@@ -51,6 +51,11 @@
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
+      // never overwrite data we couldn't read: keep a rescue copy first
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) localStorage.setItem(`${STORE_KEY}-rescue-${Date.now()}`, raw);
+      } catch (e) { /* ignore */ }
     }
     return normState({});
   }
