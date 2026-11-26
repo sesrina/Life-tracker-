@@ -11,6 +11,8 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Evening view**: from 8 pm the Today screen also shows tomorrow's plan
 - **Print this week**: a button at the bottom of the Week screen prints a one-page wall schedule
 - **Journal**: a daily entry with mood, energy, a few lines about the day and one good thing. See your mood over the last 30 days (with cycle phases underneath), patterns by weekday, by cycle phase and with or without your routines, look-backs to a week ago, the same point last cycle and a month ago, plus search
+- **Privacy lock**: a 4-digit PIN for the Journal and Cycle tabs (⚙️ Settings). They lock again whenever you leave the app
+- **Backups**: ⚙️ Settings → Backup saves a password-protected file (to Files, iCloud Drive or email) and can restore it on any phone. Keep the password safe: without it the backup can't be opened
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

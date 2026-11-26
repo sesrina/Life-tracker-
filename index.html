@@ -198,6 +198,19 @@
         <ul class="list" id="journal-list"></ul>
         <p class="tip">🔒 Your journal is saved only on this device.</p>
       </section>
+      <!-- LOCK SCREEN (shown instead of Journal / Cycle while locked) -->
+      <section id="view-lock" class="view" aria-labelledby="lock-title">
+        <div class="lock-card">
+          <div class="lock-emoji" aria-hidden="true">🔒</div>
+          <h2 id="lock-title">Locked</h2>
+          <p>Enter your 4-digit PIN to open it.</p>
+          <form id="lock-form" autocomplete="off">
+            <input class="pin-input" id="lock-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="PIN">
+          </form>
+          <p class="field-error" id="lock-error" hidden></p>
+          <button class="link-btn" type="button" id="lock-forgot">Forgot PIN?</button>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -364,6 +377,39 @@
     <div class="sheet-body">
       <div class="sheet-handle" aria-hidden="true"></div>
       <h2 id="settings-title">Settings</h2>
+
+      <section class="settings-group">
+        <h3>🔒 Privacy lock</h3>
+        <p class="g-status" id="lock-status"></p>
+        <div id="lock-setup">
+          <div class="field-row">
+            <label class="field"><span>New 4-digit PIN</span>
+              <input class="pin-input small" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="lock-new" autocomplete="off"></label>
+            <label class="field"><span>Type it again</span>
+              <input class="pin-input small" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="lock-new2" autocomplete="off"></label>
+          </div>
+          <button class="btn primary wide" type="button" id="lock-set">Turn on lock</button>
+        </div>
+        <div id="lock-manage" hidden>
+          <label class="field"><span>Current PIN (to turn it off)</span>
+            <input class="pin-input small" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="lock-current" autocomplete="off"></label>
+          <button class="btn ghost wide" type="button" id="lock-off">Turn off lock</button>
+        </div>
+      </section>
+
+      <section class="settings-group">
+        <h3>💾 Backup</h3>
+        <p class="g-status" id="backup-status"></p>
+        <label class="field"><span>Backup password</span>
+          <input type="password" id="backup-pass" autocomplete="new-password" placeholder="At least 6 characters"></label>
+        <div class="settings-actions">
+          <button class="btn primary" type="button" id="backup-save">Make a backup</button>
+          <button class="btn primary" type="button" id="backup-share" hidden>📤 Save the backup file</button>
+          <button class="btn ghost" type="button" id="backup-restore">Restore from a backup</button>
+        </div>
+        <input type="file" id="backup-file" accept=".planner,application/json,application/octet-stream,text/plain" hidden>
+        <p class="tip">Backups are locked with this password. Write it down somewhere safe: without it, nobody can open the backup, not even you or me.</p>
+      </section>
 
       <section class="settings-group">
         <h3>🗓️ Google Calendar</h3>

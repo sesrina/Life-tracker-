@@ -47,20 +47,32 @@
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (raw) {
-        const data = JSON.parse(raw);
-        return {
-          events: Array.isArray(data.events) ? data.events : [],
-          todos: Array.isArray(data.todos) ? data.todos : [],
-          cycle: normCycle(data.cycle),
-          routine: normRoutine(data.routine),
-          journal: data.journal && typeof data.journal === 'object' && !Array.isArray(data.journal) ? data.journal : {},
-          google: normGoogle(data.google),
-        };
+        return normState(JSON.parse(raw));
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
     }
-    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null), routine: normRoutine(null), journal: {} };
+    return normState({});
+  }
+
+  function normState(data) {
+    const d = data && typeof data === 'object' ? data : {};
+    const lock = d.lock && typeof d.lock === 'object' ? d.lock : {};
+    const backup = d.backup && typeof d.backup === 'object' ? d.backup : {};
+    return {
+      events: Array.isArray(d.events) ? d.events : [],
+      todos: Array.isArray(d.todos) ? d.todos : [],
+      cycle: normCycle(d.cycle),
+      routine: normRoutine(d.routine),
+      journal: d.journal && typeof d.journal === 'object' && !Array.isArray(d.journal) ? d.journal : {},
+      google: normGoogle(d.google),
+      lock: {
+        on: !!lock.on && typeof lock.hash === 'string' && typeof lock.salt === 'string',
+        hash: typeof lock.hash === 'string' ? lock.hash : '',
+        salt: typeof lock.salt === 'string' ? lock.salt : '',
+      },
+      backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
+    };
   }
 
   function save() {
@@ -502,7 +514,7 @@
 
     const mini = $('#today-cycle');
     const model = cycleModel(todayKey());
-    if (state.cycle.showOnToday && model.st.last) {
+    if (state.cycle.showOnToday && model.st.last && !isLocked()) {
       const info = cycleStatus(model.st, model.pred);
       const ph = model.phaseFor(todayKey());
       mini.innerHTML = `<span>🌙 ${esc(info.short)}</span>` +
@@ -672,7 +684,24 @@
     $('#clear-done').hidden = !(state.todos.some((t) => t.done) && todoFilter !== 'active');
   }
 
+  // Journal and Cycle hide behind the PIN lock when it's on
+  let unlocked = false;
+  const PRIVATE_VIEWS = { journal: 'Journal', cycle: 'Cycle' };
+  const isLocked = () => state.lock.on && !unlocked;
+  const isLockedView = (v) => isLocked() && !!PRIVATE_VIEWS[v];
+
   function render() {
+    const lockedView = isLockedView(currentView);
+    $('#view-lock').classList.toggle('is-active', lockedView);
+    const viewEl = document.getElementById(`view-${currentView}`);
+    if (viewEl) viewEl.classList.toggle('is-active', !lockedView);
+    if (lockedView) {
+      $('#lock-title').textContent = `${PRIVATE_VIEWS[currentView]} is locked`;
+      $('#lock-error').hidden = true;
+      renderGBar();
+      renderHeader();
+      return;
+    }
     if (currentView === 'today') renderToday();
     if (currentView === 'week') renderWeek();
     if (currentView === 'todos') renderTodos();
@@ -875,7 +904,8 @@
   $('#main').addEventListener('click', (e) => {
     const jday = e.target.closest('[data-jday]');
     if (jday) { openJournal(jday.dataset.jday); return; }
-    if (e.target.closest('#today-journal')) { openJournal(todayKey()); return; }
+    if (e.target.closest('#today-journal')) { if (isLocked()) switchView('journal'); else openJournal(todayKey()); return; }
+    if (e.target.closest('#backup-nudge')) { openSettings(); return; }
     const step = e.target.closest('[data-step]');
     if (step) { toggleStep(step.dataset.slot, step.dataset.step); return; }
     const dayBtn = e.target.closest('[data-day]');
@@ -961,7 +991,13 @@
     render();
     maybeAutoSync();
   }
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshIfNeeded(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (state.lock.on && unlocked) { unlocked = false; render(); } // lock again when you leave the app
+      return;
+    }
+    refreshIfNeeded();
+  });
   setInterval(refreshIfNeeded, 60 * 1000);
 
   /* ================= Cycle wiring ================= */
@@ -1162,6 +1198,13 @@
       : `<div class="journal-card"><h2>📓 How did today go?</h2><p>A minute is enough: pick a mood and write a line or two.</p>
           <button class="btn primary" type="button" data-jday="${tk}">✍️ Write today's entry</button></div>`;
 
+    // Gentle backup reminder once there's something worth protecting
+    const entries = Object.keys(state.journal).length;
+    if (entries >= 3 && Date.now() - state.backup.last > 14 * 86400000) {
+      $('#journal-today').insertAdjacentHTML('beforeend',
+        '<button class="btn ghost wide backup-nudge" type="button" id="backup-nudge">💾 Time to back up your journal</button>');
+    }
+
     // Look back
     const looks = [];
     const weekAgo = dateKey(addDays(new Date(), -7));
@@ -1288,6 +1331,200 @@
   });
 
   $('#print-week').addEventListener('click', () => window.print());
+
+  /* ================= PIN lock ================= */
+  const te = new TextEncoder();
+  const td = new TextDecoder();
+  function toB64(bytes) {
+    const a = new Uint8Array(bytes);
+    let s = '';
+    for (let i = 0; i < a.length; i += 0x8000) s += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000));
+    return btoa(s);
+  }
+  function fromB64(str) {
+    const s = atob(str);
+    const a = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    return a;
+  }
+  async function hashPin(pin, saltB64) {
+    const base = await crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: fromB64(saltB64), iterations: 150000, hash: 'SHA-256' }, base, 256);
+    return toB64(bits);
+  }
+  const validPin = (p) => /^\d{4}$/.test(p);
+  let wrongTries = 0;
+  let waitUntil = 0;
+
+  $('#lock-pin').addEventListener('input', async (e) => {
+    const pin = e.target.value.replace(/\D/g, '').slice(0, 4);
+    e.target.value = pin;
+    if (pin.length < 4) return;
+    if (Date.now() < waitUntil) {
+      $('#lock-error').textContent = `Too many tries. Wait ${Math.ceil((waitUntil - Date.now()) / 1000)} seconds.`;
+      $('#lock-error').hidden = false;
+      e.target.value = '';
+      return;
+    }
+    const ok = (await hashPin(pin, state.lock.salt)) === state.lock.hash;
+    e.target.value = '';
+    if (ok) {
+      wrongTries = 0;
+      unlocked = true;
+      render();
+    } else {
+      wrongTries++;
+      if (wrongTries >= 5) { waitUntil = Date.now() + 30000; wrongTries = 0; }
+      $('#lock-error').textContent = 'That PIN isn\'t right. Try again.';
+      $('#lock-error').hidden = false;
+    }
+  });
+  $('#lock-form').addEventListener('submit', (e) => e.preventDefault());
+  $('#lock-forgot').addEventListener('click', () => {
+    if (!confirm('Forgot your PIN? To protect your privacy, the only way to reset it is to ERASE your journal and cycle data on this phone. (If you have a backup, you can restore it afterwards.)\n\nErase and remove the lock?')) return;
+    if (!confirm('Are you sure? This can\'t be undone.')) return;
+    state.journal = {};
+    state.cycle = normCycle(null);
+    state.lock = { on: false, hash: '', salt: '' };
+    unlocked = false;
+    save();
+    render();
+    showToast('Lock removed and private data erased');
+  });
+
+  function renderPrivacy() {
+    $('#lock-status').textContent = state.lock.on
+      ? '🔒 On. Journal and Cycle need your PIN, and lock again whenever you leave the app.'
+      : 'Off. Turn it on to keep your Journal and Cycle private.';
+    $('#lock-setup').hidden = state.lock.on;
+    $('#lock-manage').hidden = !state.lock.on;
+    ['#lock-new', '#lock-new2', '#lock-current'].forEach((s) => { $(s).value = ''; });
+    const last = state.backup.last;
+    $('#backup-status').textContent = last
+      ? `Last backup: ${ago(last)}.`
+      : 'No backup yet. Make one now and then every couple of weeks.';
+    $('#backup-share').hidden = !pendingBackup;
+    $('#backup-save').hidden = !!pendingBackup;
+  }
+
+  $('#lock-set').addEventListener('click', async () => {
+    const a = $('#lock-new').value.trim();
+    const b = $('#lock-new2').value.trim();
+    if (!validPin(a)) { showToast('Your PIN needs to be 4 numbers'); return; }
+    if (a !== b) { showToast("Those PINs don't match"); return; }
+    const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+    state.lock = { on: true, salt, hash: await hashPin(a, salt) };
+    unlocked = true; // you just set it, so stay unlocked until you leave the app
+    save();
+    renderPrivacy();
+    render();
+    showToast('Lock is on 🔒 Remember your PIN!');
+  });
+  $('#lock-off').addEventListener('click', async () => {
+    const pin = $('#lock-current').value.trim();
+    if (!validPin(pin) || (await hashPin(pin, state.lock.salt)) !== state.lock.hash) { showToast('That PIN isn\'t right'); return; }
+    state.lock = { on: false, hash: '', salt: '' };
+    save();
+    renderPrivacy();
+    render();
+    showToast('Lock turned off');
+  });
+
+  /* ================= Backup & restore ================= */
+  let pendingBackup = null;
+
+  async function backupKey(pass, salt, iterations) {
+    const base = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  }
+  async function encryptBackup(obj, pass) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const iter = 310000;
+    const key = await backupKey(pass, salt, iter);
+    const data = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, te.encode(JSON.stringify(obj)));
+    return JSON.stringify({ app: 'cute-planner-backup', v: 1, kdf: 'PBKDF2-SHA256', iter, salt: toB64(salt), iv: toB64(iv), data: toB64(data), created: new Date().toISOString() });
+  }
+  async function decryptBackup(text, pass) {
+    const f = JSON.parse(text);
+    if (!f || f.app !== 'cute-planner-backup') throw new Error('not a backup');
+    const iter = Math.min(Math.max(Number(f.iter) || 310000, 100000), 2000000);
+    const key = await backupKey(pass, fromB64(f.salt), iter);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(f.iv) }, key, fromB64(f.data));
+    return JSON.parse(td.decode(plain));
+  }
+
+  async function deliverFile(name, text) {
+    const file = new File([text], name, { type: 'application/octet-stream' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: 'Planner backup' }); return true; } catch (e) {
+        if (e && e.name === 'AbortError') return false;
+      }
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return true;
+  }
+
+  $('#backup-save').addEventListener('click', async () => {
+    if (isLocked()) { showToast('Unlock your Journal first (open it and enter your PIN)'); return; }
+    const pass = $('#backup-pass').value;
+    if (pass.length < 6) { showToast('Choose a password with at least 6 characters'); $('#backup-pass').focus(); return; }
+    $('#backup-save').disabled = true;
+    try {
+      pendingBackup = { name: `planner-backup-${todayKey()}.planner`, text: await encryptBackup(state, pass) };
+      renderPrivacy();
+      showToast('Backup ready. Tap "Save the backup file" 📤');
+    } catch (e) {
+      showToast('Something went wrong making the backup');
+    } finally {
+      $('#backup-save').disabled = false;
+    }
+  });
+  $('#backup-share').addEventListener('click', async () => {
+    if (!pendingBackup) return;
+    const ok = await deliverFile(pendingBackup.name, pendingBackup.text);
+    if (ok) {
+      state.backup.last = Date.now();
+      pendingBackup = null;
+      save();
+      showToast('Backup saved 💾');
+    }
+    renderPrivacy();
+  });
+
+  $('#backup-restore').addEventListener('click', () => {
+    if (!$('#backup-pass').value) { showToast("First type the backup's password above"); $('#backup-pass').focus(); return; }
+    $('#backup-file').click();
+  });
+  $('#backup-file').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let data;
+    try {
+      data = await decryptBackup(await file.text(), $('#backup-pass').value);
+    } catch (err) {
+      showToast("Couldn't open it: wrong password, or not a planner backup");
+      return;
+    }
+    if (!confirm('Restore this backup? It will REPLACE everything in the planner on this phone.')) return;
+    const keepGoogle = state.google; // keep this phone's Google connection
+    state = normState(data);
+    if (keepGoogle.connected) state.google = keepGoogle;
+    unlocked = false;
+    pendingBackup = null;
+    save();
+    renderPrivacy();
+    render();
+    showToast('Backup restored 🌸');
+  });
 
   /* ================= Google Calendar ================= */
   const G_TOKEN_KEY = 'cute-planner-gtoken';
@@ -1679,6 +1916,7 @@
   function openSettings() {
     $('#g-client').value = state.google.clientId;
     renderSettings();
+    renderPrivacy();
     settingsSheet.showModal();
   }
 
