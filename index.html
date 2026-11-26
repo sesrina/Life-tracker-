@@ -63,6 +63,7 @@
         </section>
         <button class="btn primary wide journal-prompt" type="button" id="today-journal" hidden>📓 How did today go?</button>
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
+        <section class="garden-card" id="garden-card" hidden></section>
 
         <div class="section-head">
           <h2>🗓️ Events <button class="why-btn" type="button" data-why="timeline" aria-label="Why this helps">💡</button></h2>
@@ -263,6 +264,8 @@
         <button class="add-tile" type="button" data-addwhat="journal"><b aria-hidden="true">📓</b>Journal</button>
         <button class="add-tile" type="button" data-addwhat="goal"><b aria-hidden="true">🎯</b>Goal</button>
         <button class="add-tile" type="button" data-addwhat="period"><b aria-hidden="true">🩸</b>Period started</button>
+        <button class="add-tile" type="button" data-addwhat="plant"><b aria-hidden="true">🪴</b>Plant</button>
+        <button class="add-tile" type="button" data-addwhat="plants"><b aria-hidden="true">💧</b>My plants<small>water &amp; manage</small></button>
       </div>
       <button class="btn ghost wide" type="button" id="add-cancel">Cancel</button>
     </div>
@@ -448,7 +451,14 @@
         <span>Name</span>
         <input type="text" id="plant-name" maxlength="20">
       </label>
-      <p class="hint">How it grows: ✅ to-do +1 · 🎯 goal step +2 · 📓 journal +2 · ☀️🌙 full routine +3 · 🗓️ weekly reset +5. It never dies, it just waits for you 💚</p>
+      <p class="hint plant-how">How it grows:
+✅ to-do +1
+💧 watering a plant +1
+🎯 goal step +2
+📓 journal entry +2
+☀️🌙 full routine +3
+🗓️ weekly reset +5
+It never dies, it just waits for you 💚</p>
       <div class="sheet-actions">
         <button class="btn primary" type="submit">Save</button>
       </div>
@@ -508,6 +518,58 @@
       <div class="sheet-actions">
         <button class="btn ghost" type="button" id="weekly-cancel">Cancel</button>
         <button class="btn primary" type="submit">✨ Start my week</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Plants: list -->
+  <dialog id="garden-sheet" class="sheet" aria-labelledby="garden-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="garden-title">🪴 My plants <button class="why-btn" type="button" data-why="plants" aria-label="Why this helps">💡</button></h2>
+      <ul class="garden-list" id="garden-list"></ul>
+      <button class="btn primary wide" type="button" id="garden-add">+ Add a plant</button>
+      <button class="btn ghost wide" type="button" id="garden-done">Done</button>
+    </div>
+  </dialog>
+
+  <!-- Plants: add / edit -->
+  <dialog id="garden-edit" class="sheet" aria-labelledby="garden-edit-title">
+    <form id="garden-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="garden-edit-title">New plant</h2>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="garden-name" maxlength="40" placeholder="Mateo">
+      </label>
+      <label class="field">
+        <span>Type of plant</span>
+        <select id="garden-type"></select>
+      </label>
+      <label class="toggle-row g-toggle">
+        <input type="checkbox" id="garden-outdoor">
+        <span>Outdoors in sun or wind (dries out faster)</span>
+      </label>
+      <div class="field-row">
+        <label class="field">
+          <span>Water every (days)</span>
+          <input type="number" id="garden-every" min="1" max="60" inputmode="numeric">
+        </label>
+        <label class="field">
+          <span>Last watered</span>
+          <input type="date" id="garden-last">
+        </label>
+      </div>
+      <p class="hint" id="garden-tip"></p>
+      <label class="field" id="garden-remind-field" hidden>
+        <span>🔔 Remind me at</span>
+        <input type="time" id="garden-remind">
+      </label>
+      <p class="hint" id="garden-remind-hint"></p>
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="garden-delete">Delete</button>
+        <button class="btn ghost" type="button" id="garden-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
   </dialog>

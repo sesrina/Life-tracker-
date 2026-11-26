@@ -95,6 +95,7 @@
           .map((g) => ({ ...g, steps: Array.isArray(g.steps) ? g.steps.filter((s) => s && typeof s.title === 'string' && s.id) : [] }))
         : [],
       weekly: d.weekly && typeof d.weekly === 'object' && !Array.isArray(d.weekly) ? d.weekly : {},
+      plants: Array.isArray(d.plants) ? d.plants.filter((p) => p && p.id && typeof p.name === 'string') : [],
       plant: {
         name: d.plant && typeof d.plant.name === 'string' && d.plant.name ? d.plant.name : 'Pip',
         xp: d.plant && Number.isFinite(d.plant.xp) ? d.plant.xp : 0,
@@ -361,7 +362,7 @@
   // Google events on a given day (skipping ones that are copies of planner events)
   function gEventsOn(key) {
     if (!state.google.connected) return [];
-    const mine = new Set(state.events.map((e) => e.gId).concat(state.todos.map((t) => t.gEvId)).filter(Boolean));
+    const mine = new Set(state.events.map((e) => e.gId).concat(state.todos.map((t) => t.gEvId)).concat(state.plants.map((p) => p.gEvId)).filter(Boolean));
     return state.google.events.filter((g) => {
       if (g.primary && (mine.has(g.gid) || (g.series && mine.has(g.series)))) return false;
       return g.allDay ? g.start <= key && key < g.end : g.start === key;
@@ -615,6 +616,7 @@
     renderUpNext();
     renderPlantChip();
     renderSnack();
+    renderGardenCard();
     $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
 
     // Evening mode: from 8 pm, show what's coming tomorrow
@@ -782,6 +784,7 @@
         </div>
         <ul class="list">${evs.length ? evs.join('') : (tds.length ? '' : emptyHTML('Free day 🌸'))}</ul>
         ${tds.length ? `<ul class="list">${tds.map(todoHTML).join('')}</ul>` : ''}
+        ${plantsDueOn(key).length ? `<ul class="list"><li class="garden-week-item">💧 Water ${esc(plantsDueOn(key).map((pl) => pl.name).join(', '))}</li></ul>` : ''}
       </section>`;
     }
     $('#week-days').innerHTML = html;
@@ -1153,7 +1156,7 @@
   let lastDay = todayKey();
   function refreshIfNeeded() {
     if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open || addSheet.open || tourEl.open
-      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open) return;
+      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1481,6 +1484,11 @@
 
   /* ================= Learn: "Why?" explanations & daily brain snacks ================= */
   const WHY = {
+    plants: {
+      t: '🪴 Why these watering times?',
+      b: 'Every plant drinks differently. Basil and tomatoes are thirsty, while succulents, string of hearts and snake plants rot if they are watered too often. These schedules are a starting point: light, heat, wind, pot size and the season all change how fast soil dries. The best test is your finger: water when the top few centimetres of soil feel dry. Outdoor pots in sun and wind dry out faster, so the planner shortens their schedule.',
+      s: 'Royal Horticultural Society (RHS) watering advice; general houseplant care guides',
+    },
     reading: {
       t: '👓 Why these reading options?',
       b: 'Bigger text and extra space between letters make words easier to pick out. In one study, extra-wide letter spacing doubled reading accuracy for children with dyslexia. Plain fonts without serifs or slanting are read more easily than fancy ones. Special "dyslexia fonts" like OpenDyslexic didn\'t beat regular fonts in studies, so here you get clear, proven fonts instead. Everyone is different, so try them and keep what feels easiest.',
@@ -1948,6 +1956,8 @@
     else if (what === 'journal') { if (isLocked() && journalEntry(tk)) switchView('journal'); else openJournal(tk); }
     else if (what === 'goal') { switchView('goals'); openGoal(null); }
     else if (what === 'period') logPeriodToday();
+    else if (what === 'plant') openGardenEdit(null);
+    else if (what === 'plants') openGardenManager();
   });
 
   /* ================= Reading comfort & read aloud ================= */
@@ -2033,6 +2043,230 @@
     if (e.target.closest('[data-speak-snack]')) speak($('.snack-fact') ? $('.snack-fact').textContent : '');
   });
   $('#why-sheet').addEventListener('close', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
+
+  /* ================= Plant care ================= */
+  // Rough starting points; light, heat, wind, pot size and season all change how fast soil dries.
+  const PLANT_TYPES = {
+    tomato: { e: '🍅', n: 'Tomato', every: 2, tip: 'Water deeply at the base, not on the leaves. Pots in hot sun can need water every day.' },
+    basil: { e: '🌿', n: 'Basil', every: 2, tip: 'Keep the soil lightly moist but never soggy. Water in the morning, at the base.' },
+    rosemary: { e: '🌲', n: 'Rosemary', every: 8, tip: 'Let the soil dry out between waterings. Rosemary hates wet roots.' },
+    hearts: { e: '💚', n: 'String of hearts', every: 12, tip: 'Water only when the soil is completely dry, and even less in winter. Too much water is the most common problem.' },
+    succulent: { e: '🌵', n: 'Cactus or succulent', every: 14, tip: 'Soak it, then let it dry out completely. Water much less in winter.' },
+    pothos: { e: '🪴', n: 'Pothos', every: 8, tip: 'Water when the top few centimetres of soil are dry. Droopy leaves mean it is thirsty.' },
+    monstera: { e: '🍃', n: 'Monstera', every: 9, tip: 'Water when the top few centimetres are dry. Yellow leaves can mean too much water.' },
+    snake: { e: '🐍', n: 'Snake plant', every: 18, tip: 'Very drought-tolerant. Let the soil dry out fully between waterings.' },
+    peace: { e: '🤍', n: 'Peace lily', every: 6, tip: 'It droops when thirsty and perks up after a drink. Keep the soil lightly moist.' },
+    fern: { e: '🌾', n: 'Fern', every: 3, tip: 'Likes soil that stays slightly moist, and a bit of humidity. Don\'t let it dry out completely.' },
+    orchid: { e: '🌸', n: 'Orchid', every: 7, tip: 'Soak the roots for about 10 minutes, then let it drain fully. Never leave it sitting in water.' },
+    herb: { e: '🌱', n: 'Other herb', every: 3, tip: 'Most herbs like moist, well-drained soil. Thyme and sage like it a bit drier.' },
+    other: { e: '🪴', n: 'Other plant', every: 7, tip: 'Check the soil with your finger: water when the top few centimetres feel dry.' },
+  };
+  const ptype = (p) => PLANT_TYPES[p.type] || PLANT_TYPES.other;
+  const nextDue = (p) => dateKey(addDays(parseKey(p.last || todayKey()), Math.max(1, Number(p.every) || 7)));
+  const daysUntilWater = (p) => diffDays(todayKey(), nextDue(p));
+  const suggestedEvery = (type, outdoor) => Math.max(1, Math.round((PLANT_TYPES[type] || PLANT_TYPES.other).every * (outdoor ? 0.7 : 1)));
+
+  function waterStatus(p) {
+    const d = daysUntilWater(p);
+    if (d < 0) return `Overdue by ${plural(-d, 'day')}`;
+    if (d === 0) return 'Water today';
+    if (d === 1) return 'Water tomorrow';
+    return `Water in ${d} days`;
+  }
+
+  function gardenRow(p, manager) {
+    const t = ptype(p);
+    const due = daysUntilWater(p) <= 0;
+    return `<li class="garden-row${due ? ' due' : ''}">
+      <span class="garden-emoji" aria-hidden="true">${t.e}</span>
+      <span class="garden-text"><b>${esc(p.name)}</b><small>${esc([p.name.toLowerCase() === t.n.toLowerCase() ? '' : t.n, p.outdoor ? 'Outdoors' : ''].filter(Boolean).join(', '))}${p.name.toLowerCase() === t.n.toLowerCase() && !p.outdoor ? '' : '\n'}💧 ${esc(waterStatus(p))}</small></span>
+      <span class="garden-btns">
+        ${due || manager ? `<button class="btn primary garden-water" type="button" data-water="${esc(p.id)}">💧 Watered</button>` : ''}
+        ${manager ? `<button class="link-btn" type="button" data-garden-edit="${esc(p.id)}">Edit</button>` : ''}
+      </span></li>`;
+  }
+
+  function renderGardenCard() {
+    const card = $('#garden-card');
+    if (!state.plants.length) { card.hidden = true; return; }
+    card.hidden = false;
+    const due = state.plants.filter((p) => daysUntilWater(p) <= 0).sort((a, b) => daysUntilWater(a) - daysUntilWater(b));
+    let body;
+    if (due.length) body = `<ul class="garden-list">${due.map((p) => gardenRow(p, false)).join('')}</ul>`;
+    else {
+      const next = [...state.plants].sort((a, b) => nextDue(a).localeCompare(nextDue(b)))[0];
+      const d = daysUntilWater(next);
+      body = `<p class="garden-ok">All watered 🌿\nNext: ${esc(next.name)} ${d === 1 ? 'tomorrow' : `in ${d} days`}</p>`;
+    }
+    card.innerHTML = `<div class="garden-head"><h2>🪴 Plants ${whyBtn('plants')}</h2>
+      <button class="link-btn" type="button" data-garden-manage>See all</button></div>${body}`;
+  }
+
+  function plantsDueOn(key) {
+    const tk = todayKey();
+    if (key < tk) return [];
+    return state.plants.filter((p) => {
+      const every = Math.max(1, Number(p.every) || 7);
+      let d = nextDue(p);
+      if (d < tk) d = tk; // overdue plants show up today
+      const gap = diffDays(d, key);
+      return gap >= 0 && gap % every === 0;
+    });
+  }
+
+  function renderGardenManager() {
+    $('#garden-list').innerHTML = state.plants.length
+      ? [...state.plants].sort((a, b) => nextDue(a).localeCompare(nextDue(b))).map((p) => gardenRow(p, true)).join('')
+      : '<li class="empty">No plants yet. Add your first one 🌱</li>';
+  }
+
+  function waterPlant(id) {
+    const p = state.plants.find((x) => x.id === id);
+    if (!p) return;
+    p.last = todayKey();
+    p.gRemindDirty = true;
+    grow(1);
+    save();
+    render();
+    if (gardenSheet.open) renderGardenManager();
+    showToast(`${p.name} says thank you 💧`);
+    celebrate(false);
+    if (p.remind) googlePush(true);
+  }
+
+  // ---- manager & editor ----
+  const gardenSheet = $('#garden-sheet');
+  const gardenEdit = $('#garden-edit');
+  let editingPlant = null;
+  let everyTouched = false;
+  $('#garden-type').innerHTML = Object.entries(PLANT_TYPES).map(([k, t]) => `<option value="${k}">${t.e} ${t.n}</option>`).join('');
+
+  function openGardenManager() { renderGardenManager(); gardenSheet.showModal(); }
+
+  function updateGardenTip() {
+    const type = $('#garden-type').value;
+    if (!everyTouched) $('#garden-every').value = suggestedEvery(type, $('#garden-outdoor').checked);
+    $('#garden-tip').textContent = `💡 ${PLANT_TYPES[type].tip}`;
+  }
+
+  function openGardenEdit(id) {
+    const p = id ? state.plants.find((x) => x.id === id) : null;
+    editingPlant = p ? p.id : null;
+    everyTouched = !!p;
+    $('#garden-edit-title').textContent = p ? 'Edit plant' : 'New plant';
+    $('#garden-name').value = p ? p.name : '';
+    $('#garden-type').value = p && PLANT_TYPES[p.type] ? p.type : 'other';
+    $('#garden-outdoor').checked = p ? !!p.outdoor : false;
+    $('#garden-every').value = p ? p.every : suggestedEvery('other', false);
+    $('#garden-last').value = p ? p.last : todayKey();
+    $('#garden-remind-field').hidden = !state.google.connected;
+    $('#garden-remind').value = p && p.remind ? p.remind : '';
+    $('#garden-remind-hint').textContent = state.google.connected
+      ? 'Optional. You\'ll get a Google Calendar notification on watering days.'
+      : '🔔 Want watering notifications? Connect Google Calendar in ⚙️ Settings → Extras.';
+    $('#garden-delete').hidden = !p;
+    updateGardenTip();
+    gardenEdit.showModal();
+  }
+
+  $('#garden-type').addEventListener('change', () => { everyTouched = false; updateGardenTip(); });
+  $('#garden-outdoor').addEventListener('change', () => { everyTouched = false; updateGardenTip(); });
+  $('#garden-every').addEventListener('input', () => { everyTouched = true; });
+  $('#garden-cancel').addEventListener('click', () => gardenEdit.close());
+  $('#garden-done').addEventListener('click', () => gardenSheet.close());
+  $('#garden-add').addEventListener('click', () => openGardenEdit(null));
+  gardenEdit.addEventListener('click', (e) => { if (e.target === gardenEdit) gardenEdit.close(); });
+  gardenSheet.addEventListener('click', (e) => { if (e.target === gardenSheet) gardenSheet.close(); });
+
+  $('#garden-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const type = $('#garden-type').value;
+    const data = {
+      name: ($('#garden-name').value.trim() || PLANT_TYPES[type].n).slice(0, 40),
+      type,
+      outdoor: $('#garden-outdoor').checked,
+      every: Math.min(60, Math.max(1, Math.round(Number($('#garden-every').value) || PLANT_TYPES[type].every))),
+      last: /^\d{4}-\d{2}-\d{2}$/.test($('#garden-last').value) ? $('#garden-last').value : todayKey(),
+      remind: state.google.connected && /^\d\d:\d\d$/.test($('#garden-remind').value) ? $('#garden-remind').value : '',
+      gRemindDirty: true,
+    };
+    const old = editingPlant ? state.plants.find((x) => x.id === editingPlant) : null;
+    if (old) Object.assign(old, data); else state.plants.push({ id: uid(), created: Date.now(), ...data });
+    save();
+    gardenEdit.close();
+    render();
+    if (gardenSheet.open) renderGardenManager();
+    showToast(old ? 'Plant saved 🪴' : `${data.name} added 🌱`);
+    if (state.google.connected) googlePush(true);
+  });
+
+  $('#garden-delete').addEventListener('click', () => {
+    const p = state.plants.find((x) => x.id === editingPlant);
+    if (!p || !confirm(`Remove ${p.name} from your plants?`)) return;
+    if (p.gEvId) state.google.pendingDeletes.push(p.gEvId);
+    state.plants = state.plants.filter((x) => x.id !== p.id);
+    save();
+    gardenEdit.close();
+    render();
+    if (gardenSheet.open) renderGardenManager();
+    googlePush(true);
+  });
+
+  document.addEventListener('click', (e) => {
+    const w = e.target.closest('[data-water]');
+    if (w) { waterPlant(w.dataset.water); return; }
+    const ed = e.target.closest('[data-garden-edit]');
+    if (ed) { openGardenEdit(ed.dataset.gardenEdit); return; }
+    if (e.target.closest('[data-garden-manage]')) openGardenManager();
+  });
+
+  // Google Calendar reminder for the next watering day
+  const wantsWaterReminder = (p) => !!p.remind && state.google.connected;
+  function waterReminderBody(p) {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let day = nextDue(p);
+    if (day < todayKey()) day = todayKey();
+    const [h, m] = p.remind.split(':').map(Number);
+    const end = parseKey(day);
+    end.setHours(h, m + 15);
+    return {
+      summary: `💧 Water ${p.name}`,
+      description: ptype(p).tip,
+      start: { dateTime: `${day}T${p.remind}:00`, timeZone },
+      end: { dateTime: `${dateKey(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`, timeZone },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] },
+    };
+  }
+  async function pushPlantReminders() {
+    for (const p of state.plants) {
+      if (wantsWaterReminder(p)) {
+        if (!p.gRemindDirty && p.gEvId) continue;
+        if (p.gEvId) {
+          try {
+            await gApi(`/calendars/primary/events/${encodeURIComponent(p.gEvId)}`, { method: 'PATCH', body: waterReminderBody(p) });
+          } catch (e) {
+            if (e.status !== 404 && e.status !== 410) throw e;
+            p.gEvId = null;
+          }
+        }
+        if (!p.gEvId) {
+          const r = await gApi('/calendars/primary/events', { method: 'POST', body: waterReminderBody(p) });
+          p.gEvId = r.id;
+        }
+        p.gRemindDirty = false;
+        save();
+      } else if (p.gEvId) {
+        try {
+          await gApi(`/calendars/primary/events/${encodeURIComponent(p.gEvId)}`, { method: 'DELETE' });
+        } catch (e) {
+          if (e.status !== 404 && e.status !== 410) throw e;
+        }
+        p.gEvId = null;
+        p.gRemindDirty = false;
+        save();
+      }
+    }
+  }
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
@@ -2681,7 +2915,8 @@
     state.events.filter((e) => e.gSync && (e.gDirty || !e.gId)).length +
     state.google.pendingDeletes.length +
     state.google.tasks.filter((t) => t.dirty).length +
-    state.todos.filter((t) => (wantsReminder(t) && (t.gRemindDirty || !t.gEvId)) || (!wantsReminder(t) && t.gEvId)).length;
+    state.todos.filter((t) => (wantsReminder(t) && (t.gRemindDirty || !t.gEvId)) || (!wantsReminder(t) && t.gEvId)).length +
+    state.plants.filter((p) => (wantsWaterReminder(p) && (p.gRemindDirty || !p.gEvId)) || (!wantsWaterReminder(p) && p.gEvId)).length;
 
   const isScopeError = (e) => e && e.status === 403 && /scope|insufficient|permission/i.test(e.message);
   const isDisabledError = (e) => e && e.status === 403 && /disabled|has not been used|not enabled/i.test(e.message);
@@ -2825,6 +3060,7 @@
         save();
       }
     }
+    await pushPlantReminders();
   }
 
   function googleError(e) {
