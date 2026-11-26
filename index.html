@@ -48,6 +48,7 @@
           </div>
           <ul class="routine-list" id="routine-list"></ul>
         </section>
+        <button class="btn primary wide journal-prompt" type="button" id="today-journal" hidden>📓 How did today go?</button>
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
 
         <div class="section-head">
@@ -169,6 +170,34 @@
         </label>
         <p class="tip">🔒 Cycle data is saved only on this device. Predictions are estimates based on your past cycles. Don't rely on them for contraception.</p>
       </section>
+
+      <!-- JOURNAL -->
+      <section id="view-journal" class="view" aria-labelledby="screen-title">
+        <div class="journal-today" id="journal-today"></div>
+
+        <div id="journal-lookback"></div>
+
+        <div class="section-head"><h2>💗 Mood · last 30 days</h2></div>
+        <div class="chart-card">
+          <div class="mood-chart" id="mood-chart" role="img"></div>
+          <div class="mood-axis" id="mood-axis" aria-hidden="true"></div>
+          <div class="legend phase-legend" id="mood-legend" aria-hidden="true">
+            <span><i class="lg-ph ph-menstrual"></i>Menstrual</span>
+            <span><i class="lg-ph ph-follicular"></i>Follicular</span>
+            <span><i class="lg-ph ph-ovulation"></i>Ovulation</span>
+            <span><i class="lg-ph ph-luteal"></i>Luteal</span>
+          </div>
+          <p class="tip chart-tip">Taller bar = better mood. Tap a bar to open that day.</p>
+        </div>
+
+        <div class="section-head"><h2>🔍 Patterns</h2></div>
+        <div id="journal-patterns"></div>
+
+        <div class="section-head"><h2>📚 All entries</h2></div>
+        <input class="journal-search" type="search" id="journal-search" placeholder="Search your journal…" aria-label="Search your journal">
+        <ul class="list" id="journal-list"></ul>
+        <p class="tip">🔒 Your journal is saved only on this device.</p>
+      </section>
     </main>
   </div>
 
@@ -177,6 +206,7 @@
     <button class="tab" type="button" data-view="week"><span class="tab-icon">🗓️</span><span>Week</span></button>
     <button class="tab" type="button" data-view="todos"><span class="tab-icon">✅</span><span>To-do</span></button>
     <button class="tab" type="button" data-view="cycle"><span class="tab-icon">🌙</span><span>Cycle</span></button>
+    <button class="tab" type="button" data-view="journal"><span class="tab-icon">📓</span><span>Journal</span></button>
   </nav>
 
   <!-- Add / edit sheet -->
@@ -229,6 +259,50 @@
   </dialog>
 
   <!-- Cycle day sheet -->
+  <!-- Journal entry -->
+  <dialog id="journal-sheet" class="sheet" aria-labelledby="journal-title">
+    <form id="journal-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="journal-title">Today</h2>
+      <p class="day-phase" id="journal-context"></p>
+
+      <fieldset class="field">
+        <legend>How was your mood?</legend>
+        <div class="mood-pick">
+          <label><input type="radio" name="jmood" value="1"><span><b>😞</b>Awful</span></label>
+          <label><input type="radio" name="jmood" value="2"><span><b>😕</b>Meh</span></label>
+          <label><input type="radio" name="jmood" value="3"><span><b>😐</b>Okay</span></label>
+          <label><input type="radio" name="jmood" value="4"><span><b>🙂</b>Good</span></label>
+          <label><input type="radio" name="jmood" value="5"><span><b>😄</b>Great</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>Energy</legend>
+        <div class="pill-group">
+          <label class="pill"><input type="radio" name="jenergy" value="1"><span>🪫 Low</span></label>
+          <label class="pill"><input type="radio" name="jenergy" value="2"><span>🔋 Okay</span></label>
+          <label class="pill"><input type="radio" name="jenergy" value="3"><span>⚡ High</span></label>
+        </div>
+      </fieldset>
+
+      <label class="field">
+        <span>How did today go?</span>
+        <textarea id="journal-text" rows="6" placeholder="Anything on your mind… what happened, how you felt, what you learned."></textarea>
+      </label>
+      <label class="field">
+        <span>🌟 One good thing about today</span>
+        <input type="text" id="journal-good" maxlength="200" placeholder="Even something small counts">
+      </label>
+
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="journal-delete">Delete</button>
+        <button class="btn ghost" type="button" id="journal-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Routine editor -->
   <dialog id="routine-sheet" class="sheet" aria-labelledby="routine-sheet-title">
     <form id="routine-form" class="sheet-body" novalidate>

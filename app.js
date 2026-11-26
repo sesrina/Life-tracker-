@@ -53,13 +53,14 @@
           todos: Array.isArray(data.todos) ? data.todos : [],
           cycle: normCycle(data.cycle),
           routine: normRoutine(data.routine),
+          journal: data.journal && typeof data.journal === 'object' && !Array.isArray(data.journal) ? data.journal : {},
           google: normGoogle(data.google),
         };
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
     }
-    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null), routine: normRoutine(null) };
+    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null), routine: normRoutine(null), journal: {} };
   }
 
   function save() {
@@ -434,7 +435,7 @@
   let weekStart = startOfWeek(new Date());
   let todoFilter = 'active';
 
-  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders', cycle: 'My cycle' };
+  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders', cycle: 'My cycle', journal: 'Journal' };
   let monthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   function renderHeader() {
@@ -496,6 +497,8 @@
     }
 
     renderRoutine(hour);
+    const jEntry = journalEntry(key);
+    $('#today-journal').hidden = !(hour >= 19 && !(jEntry && (jEntry.mood || jEntry.text)));
 
     const mini = $('#today-cycle');
     const model = cycleModel(todayKey());
@@ -674,6 +677,7 @@
     if (currentView === 'week') renderWeek();
     if (currentView === 'todos') renderTodos();
     if (currentView === 'cycle') renderCycle();
+    if (currentView === 'journal') renderJournal();
     renderGBar();
     renderHeader();
   }
@@ -869,6 +873,9 @@
 
   // One listener handles taps on every list item and "+" button
   $('#main').addEventListener('click', (e) => {
+    const jday = e.target.closest('[data-jday]');
+    if (jday) { openJournal(jday.dataset.jday); return; }
+    if (e.target.closest('#today-journal')) { openJournal(todayKey()); return; }
     const step = e.target.closest('[data-step]');
     if (step) { toggleStep(step.dataset.slot, step.dataset.step); return; }
     const dayBtn = e.target.closest('[data-day]');
@@ -946,7 +953,7 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open) return;
+    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1035,6 +1042,227 @@
   $('#month-today').addEventListener('click', () => {
     const n = new Date(); monthCursor = new Date(n.getFullYear(), n.getMonth(), 1); render();
   });
+
+  /* ================= Journal ================= */
+  const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
+  const ENERGY = { 1: '🪫 Low energy', 2: '🔋 Okay energy', 3: '⚡ High energy' };
+  const journalSheet = $('#journal-sheet');
+  let editingJournal = null;
+
+  function journalEntry(key) {
+    const e = state.journal[key];
+    return e && typeof e === 'object' ? e : null;
+  }
+  const moodOf = (e) => (e && MOODS[e.mood] ? Number(e.mood) : 0);
+  const moodEmoji = (avg) => MOODS[Math.min(5, Math.max(1, Math.round(avg)))][0];
+  const avgOf = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
+
+  function entryContext(key) {
+    const parts = [];
+    const ph = cycleModel(key).phaseFor(key);
+    if (ph) parts.push(`${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} · cycle day ${ph.day}`);
+    const n = dayEvents(key).length;
+    if (n) parts.push(plural(n, 'event'));
+    const r = routineDay(key);
+    if (r.morningAll) parts.push('☀️ routine done');
+    if (r.nightAll) parts.push('🌙 routine done');
+    return parts.join(' · ');
+  }
+
+  function openJournal(key) {
+    editingJournal = key;
+    const e = journalEntry(key) || {};
+    const rel = relDay(key);
+    const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
+    $('#journal-title').textContent = ['Today', 'Yesterday'].includes(rel) ? `${rel} · ${long}` : long;
+    $('#journal-context').textContent = entryContext(key);
+    $$('input[name="jmood"]').forEach((r) => { r.checked = Number(r.value) === Number(e.mood); });
+    $$('input[name="jenergy"]').forEach((r) => { r.checked = Number(r.value) === Number(e.energy); });
+    $('#journal-text').value = e.text || '';
+    $('#journal-good').value = e.good || '';
+    $('#journal-delete').hidden = !journalEntry(key);
+    journalSheet.showModal();
+  }
+
+  $('#journal-form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    if (!editingJournal) return;
+    const mood = Number(($('input[name="jmood"]:checked') || {}).value) || 0;
+    const energy = Number(($('input[name="jenergy"]:checked') || {}).value) || 0;
+    const text = $('#journal-text').value.trim().slice(0, 5000);
+    const good = $('#journal-good').value.trim();
+    if (mood || energy || text || good) {
+      state.journal[editingJournal] = { mood, energy, text, good, updated: Date.now() };
+    } else {
+      delete state.journal[editingJournal];
+    }
+    save();
+    journalSheet.close();
+    render();
+    showToast('Saved to your journal 📓');
+  });
+  $('#journal-cancel').addEventListener('click', () => journalSheet.close());
+  $('#journal-delete').addEventListener('click', () => {
+    if (!editingJournal || !confirm('Delete this journal entry?')) return;
+    delete state.journal[editingJournal];
+    save();
+    journalSheet.close();
+    render();
+    showToast('Entry deleted');
+  });
+  journalSheet.addEventListener('click', (e) => { if (e.target === journalSheet) journalSheet.close(); });
+  journalSheet.addEventListener('close', () => { editingJournal = null; });
+  $('#journal-search').addEventListener('input', () => renderJournalList());
+
+  function entryItemHTML(key, label) {
+    const e = journalEntry(key);
+    const m = moodOf(e);
+    const ph = cycleModel(key).phaseFor(key);
+    const meta = [fmtDate(key, { weekday: 'short', day: 'numeric', month: 'short' })];
+    if (ph) meta.push(`${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name}`);
+    if (e.energy && ENERGY[e.energy]) meta.push(ENERGY[e.energy]);
+    const text = e.text || (e.good ? `🌟 ${e.good}` : '');
+    return `<li class="item"><button class="item-main" type="button" data-jday="${key}">
+      ${label ? `<span class="lookback-label">${esc(label)}</span>` : ''}
+      <span class="item-title">${m ? `${MOODS[m][0]} ${MOODS[m][1]}` : '📝 Entry'}</span>
+      <span class="item-meta">${esc(meta.join(' · '))}</span>
+      ${text ? `<span class="excerpt">${esc(text)}</span>` : ''}
+    </button></li>`;
+  }
+
+  function renderJournalList() {
+    const q = $('#journal-search').value.trim().toLowerCase();
+    const keys = Object.keys(state.journal).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && journalEntry(k)).sort().reverse();
+    const shown = q
+      ? keys.filter((k) => { const e = journalEntry(k); return `${e.text || ''} ${e.good || ''}`.toLowerCase().includes(q); })
+      : keys;
+    $('#journal-list').innerHTML = shown.length
+      ? shown.slice(0, 200).map((k) => entryItemHTML(k)).join('')
+      : emptyHTML(q ? 'Nothing found for that search' : 'Your entries will appear here 🌸');
+  }
+
+  function hbarHTML(label, avg, n, cls = '') {
+    if (!n) return `<div class="hbar"><span class="hbar-label">${esc(label)}</span><span class="hbar-track"></span><span class="hbar-value none">–</span></div>`;
+    return `<div class="hbar" role="img" aria-label="${esc(label)}: average mood ${avg.toFixed(1)} out of 5 from ${plural(n, 'entry')}">
+      <span class="hbar-label">${esc(label)}</span>
+      <span class="hbar-track"><span class="hbar-fill ${cls}" style="display:block;width:${(avg / 5) * 100}%"></span></span>
+      <span class="hbar-value">${moodEmoji(avg)} ${avg.toFixed(1)}</span></div>`;
+  }
+
+  function renderJournal() {
+    const tk = todayKey();
+    const today = journalEntry(tk);
+
+    // Today's card
+    const m = moodOf(today);
+    $('#journal-today').innerHTML = today
+      ? `<div class="journal-card"><h2>${m ? `<span class="journal-mood-big">${MOODS[m][0]}</span>` : ''}Today: ${m ? MOODS[m][1] : 'written'}</h2>
+          <p>${esc(today.text ? today.text.slice(0, 140) + (today.text.length > 140 ? '…' : '') : today.good ? `🌟 ${today.good}` : 'Add a few words about your day.')}</p>
+          <button class="btn ghost" type="button" data-jday="${tk}">✏️ Edit today's entry</button></div>`
+      : `<div class="journal-card"><h2>📓 How did today go?</h2><p>A minute is enough: pick a mood and write a line or two.</p>
+          <button class="btn primary" type="button" data-jday="${tk}">✍️ Write today's entry</button></div>`;
+
+    // Look back
+    const looks = [];
+    const weekAgo = dateKey(addDays(new Date(), -7));
+    if (journalEntry(weekAgo)) looks.push(entryItemHTML(weekAgo, 'A week ago'));
+    const st = cycleStats();
+    if (st.periods.length >= 2) {
+      const day = diffDays(st.last.start, tk);
+      const sameKey = dateKey(addDays(parseKey(st.periods[st.periods.length - 2].start), day));
+      if (sameKey < st.last.start && journalEntry(sameKey)) looks.push(entryItemHTML(sameKey, 'Same point last cycle'));
+    }
+    const monthAgo = dateKey(addDays(new Date(), -30));
+    if (journalEntry(monthAgo)) looks.push(entryItemHTML(monthAgo, 'A month ago'));
+    $('#journal-lookback').innerHTML = looks.length
+      ? `<div class="section-head"><h2>🕰️ Look back</h2></div><ul class="list lookback">${looks.join('')}</ul>`
+      : '';
+
+    // Mood chart, last 30 days
+    const model = cycleModel(tk);
+    let html = '';
+    let withPhase = false;
+    let logged = 0;
+    for (let i = 29; i >= 0; i--) {
+      const key = dateKey(addDays(new Date(), -i));
+      const e = journalEntry(key);
+      const mood = moodOf(e);
+      if (mood) logged++;
+      const ph = model.phaseFor(key);
+      if (ph) withPhase = true;
+      const label = `${fmtDate(key, { weekday: 'short', day: 'numeric', month: 'short' })}: ${mood ? `${MOODS[mood][1]} mood` : 'no entry'}${ph ? `, ${PHASES[ph.phase].name} phase` : ''}`;
+      html += `<button class="mood-col${key === tk ? ' is-today' : ''}" type="button" data-jday="${key}" title="${esc(label)}" aria-label="${esc(label)}">
+        ${mood ? `<span class="bar" style="height:${mood * 18}px"></span>` : '<span class="nodata"></span>'}
+        <span class="ph${ph ? ` ph-${ph.phase}` : ''}"></span></button>`;
+    }
+    $('#mood-chart').innerHTML = html;
+    $('#mood-chart').setAttribute('aria-label', `Mood for the last 30 days, ${plural(logged, 'day')} logged`);
+    const a = addDays(new Date(), -29);
+    const b = addDays(new Date(), -15);
+    $('#mood-axis').innerHTML = [a, b].map((d) => `<span>${esc(d.toLocaleDateString([], { day: 'numeric', month: 'short' }))}</span>`).join('') + '<span>Today</span>';
+    $('#mood-legend').hidden = !withPhase;
+
+    // Patterns
+    const keys = Object.keys(state.journal).filter((k) => moodOf(journalEntry(k)));
+    const need = 5;
+    if (keys.length < need) {
+      $('#journal-patterns').innerHTML = `<div class="pattern-card"><h3>Patterns appear after ${need} entries</h3>
+        <p class="insight">You've rated your mood on ${plural(keys.length, 'day')} so far. Keep going 🌱 Then you'll see your best days of the week, how your mood moves with your cycle, and whether your routines help.</p></div>`;
+    } else {
+      let out = '';
+      // By weekday (Mon..Sun)
+      const days = [[], [], [], [], [], [], []];
+      keys.forEach((k) => days[(parseKey(k).getDay() + 6) % 7].push(moodOf(journalEntry(k))));
+      const names = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(startOfWeek(new Date()), i).toLocaleDateString([], { weekday: 'short' }));
+      const longNames = [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(startOfWeek(new Date()), i).toLocaleDateString([], { weekday: 'long' }));
+      const scored = days.map((d, i) => ({ i, n: d.length, avg: d.length ? avgOf(d) : 0 })).filter((x) => x.n);
+      const best = scored.reduce((p, c) => (c.avg > p.avg ? c : p), scored[0]);
+      const worst = scored.reduce((p, c) => (c.avg < p.avg ? c : p), scored[0]);
+      out += `<div class="pattern-card"><h3>🗓️ Mood by day of the week</h3>
+        <p class="insight">${best.i !== worst.i ? `Your best days are usually <b>${esc(longNames[best.i])}s</b>, and the hardest are <b>${esc(longNames[worst.i])}s</b>.` : 'Not enough variety yet. Keep writing!'}</p>
+        ${days.map((d, i) => hbarHTML(names[i], d.length ? avgOf(d) : 0, d.length)).join('')}</div>`;
+
+      // By cycle phase
+      const byPhase = { menstrual: [], follicular: [], ovulation: [], luteal: [] };
+      keys.forEach((k) => { const ph = cycleModel(k).phaseFor(k); if (ph) byPhase[ph.phase].push(moodOf(journalEntry(k))); });
+      const phScored = PHASE_ORDER.filter((p) => byPhase[p].length).map((p) => ({ p, avg: avgOf(byPhase[p]) }));
+      if (phScored.length >= 2) {
+        const pb = phScored.reduce((x, y) => (y.avg > x.avg ? y : x));
+        const pw = phScored.reduce((x, y) => (y.avg < x.avg ? y : x));
+        out += `<div class="pattern-card wide"><h3>🌙 Mood through your cycle</h3>
+          <p class="insight">You tend to feel best in your <b>${esc(PHASES[pb.p].name.toLowerCase())}</b> phase and lowest in your <b>${esc(PHASES[pw.p].name.toLowerCase())}</b> phase. Good to know for planning big days!</p>
+          ${PHASE_ORDER.map((p) => hbarHTML(`${PHASES[p].emoji} ${PHASES[p].name}`, byPhase[p].length ? avgOf(byPhase[p]) : 0, byPhase[p].length, `ph-${p}`)).join('')}</div>`;
+      }
+
+      // Routines vs mood
+      const cmp = (slot) => {
+        const yes = []; const no = [];
+        keys.forEach((k) => (routineDay(k)[`${slot}All`] ? yes : no).push(moodOf(journalEntry(k))));
+        return yes.length >= 2 && no.length >= 2 ? { yes: avgOf(yes), no: avgOf(no) } : null;
+      };
+      [['morning', '☀️ Morning routine'], ['night', '🌙 Night routine']].forEach(([slot, label]) => {
+        const c = cmp(slot);
+        if (!c) return;
+        const diff = c.yes - c.no;
+        const msg = diff > 0.2 ? 'Your mood is better on days you finish it. It\'s working! 💪'
+          : diff < -0.2 ? 'Interesting: no mood boost showing yet. Maybe tweak the steps?'
+            : 'About the same either way so far.';
+        out += `<div class="pattern-card"><h3>${label} & mood</h3><p class="insight">${msg}</p>
+          <div class="compare-row"><div><b>${moodEmoji(c.yes)} ${c.yes.toFixed(1)}</b><span>Routine done</span></div>
+          <div><b>${moodEmoji(c.no)} ${c.no.toFixed(1)}</b><span>Not done</span></div></div></div>`;
+      });
+
+      // Energy
+      const en = keys.map((k) => journalEntry(k)).filter((e) => e.energy);
+      if (en.length >= need) {
+        const low = en.filter((e) => Number(e.energy) === 1).length;
+        out += `<div class="pattern-card"><h3>⚡ Energy</h3><p class="insight">You've had low energy on ${plural(low, 'day')} out of ${en.length}.${low / en.length > 0.4 ? ' That\'s a lot. Worth looking at sleep and what\'s on those days 💗' : ''}</p></div>`;
+      }
+      $('#journal-patterns').innerHTML = out;
+    }
+
+    renderJournalList();
+  }
 
   /* ================= Routine editor & printing ================= */
   const routineSheet = $('#routine-sheet');

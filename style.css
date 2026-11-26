@@ -26,6 +26,12 @@
   --ph-follicular: #7fc4ec;
   --ph-ovulation: #f2bf4b;
   --ph-luteal: #ad97e6;
+  /* deeper versions for charts (checked for contrast & colour-blind safety) */
+  --ch-mood: #c2557f;
+  --ch-menstrual: #d6537e;
+  --ch-follicular: #2b88c4;
+  --ch-ovulation: #c27c0e;
+  --ch-luteal: #8565d4;
 
   --radius: 22px;
   --tap: 52px;
@@ -61,6 +67,11 @@
     --ph-follicular: #4f8fb8;
     --ph-ovulation: #c49a35;
     --ph-luteal: #7d68b8;
+    --ch-mood: #e0789c;
+    --ch-menstrual: #d9628a;
+    --ch-follicular: #3f95cc;
+    --ch-ovulation: #c48a26;
+    --ch-luteal: #9076e0;
     color-scheme: dark;
   }
 }
@@ -278,6 +289,106 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
 
 
 
+/* ---------- Journal ---------- */
+.journal-prompt { margin-top: 12px; }
+.journal-card {
+  padding: 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--lavender), var(--pink));
+  box-shadow: var(--shadow);
+}
+.journal-card h2 { margin-bottom: 6px; }
+.journal-card p { margin: 0 0 12px; font-weight: 600; }
+.journal-card .btn { width: 100%; }
+.journal-mood-big { font-size: 34px; line-height: 1; margin-right: 8px; vertical-align: middle; }
+.lookback { margin-top: 14px; display: grid; gap: 10px; }
+.lookback .item-main { padding: 12px 16px; }
+.lookback-label { font-size: 13px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.excerpt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--muted); font-weight: 600; font-size: 15px; }
+
+.chart-card { padding: 16px 14px 12px; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+.mood-chart { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+.mood-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.mood-col .bar { width: 100%; max-width: 12px; border-radius: 4px 4px 0 0; background: var(--ch-mood); }
+.mood-col .nodata { width: 4px; height: 4px; border-radius: 50%; background: var(--line); margin-bottom: 2px; }
+.mood-col .ph { width: 100%; height: 5px; border-radius: 2px; background: transparent; }
+.mood-col .ph.ph-menstrual { background: var(--ch-menstrual); }
+.mood-col .ph.ph-follicular { background: var(--ch-follicular); }
+.mood-col .ph.ph-ovulation { background: var(--ch-ovulation); }
+.mood-col .ph.ph-luteal { background: var(--ch-luteal); }
+.mood-col.is-today .bar { outline: 2px solid var(--ink); outline-offset: 1px; }
+.mood-axis { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.phase-legend { margin-top: 10px; }
+.lg-ph { border-radius: 3px !important; }
+.lg-ph.ph-menstrual { background: var(--ch-menstrual); }
+.lg-ph.ph-follicular { background: var(--ch-follicular); }
+.lg-ph.ph-ovulation { background: var(--ch-ovulation); }
+.lg-ph.ph-luteal { background: var(--ch-luteal); }
+.chart-tip { margin: 8px 2px 0; }
+
+.pattern-card { padding: 16px; margin-bottom: 12px; border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); }
+.pattern-card h3 { margin: 0 0 4px; font-size: 16px; font-weight: 800; }
+.pattern-card .insight { margin: 0 0 12px; font-weight: 600; color: var(--muted); font-size: 15px; }
+.hbar { display: grid; grid-template-columns: 76px 1fr 58px; align-items: center; gap: 10px; min-height: 30px; }
+.pattern-card.wide .hbar { grid-template-columns: 122px 1fr 58px; }
+.hbar-label { font-size: 14px; white-space: nowrap; font-weight: 700; }
+.hbar-track { height: 10px; border-radius: 0 4px 4px 0; background: transparent; }
+.hbar-fill { height: 100%; border-radius: 0 4px 4px 0; background: var(--ch-mood); }
+.hbar-fill.ph-menstrual { background: var(--ch-menstrual); }
+.hbar-fill.ph-follicular { background: var(--ch-follicular); }
+.hbar-fill.ph-ovulation { background: var(--ch-ovulation); }
+.hbar-fill.ph-luteal { background: var(--ch-luteal); }
+.hbar-value { font-size: 14px; font-weight: 800; text-align: right; white-space: nowrap; }
+.hbar-value.none { color: var(--muted); font-weight: 600; }
+.compare-row { display: flex; gap: 10px; }
+.compare-row > div { flex: 1; padding: 12px; border-radius: 16px; background: var(--bg); text-align: center; }
+.compare-row b { display: block; font-size: 26px; }
+.compare-row span { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+.journal-search {
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 12px;
+  padding: 0 18px;
+  border-radius: 18px;
+  border: 2px solid var(--line);
+  background: var(--card);
+  font: inherit;
+  font-size: 17px;
+}
+.journal-search:focus { border-color: var(--accent); outline: none; }
+
+.mood-pick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.mood-pick label { position: relative; }
+.mood-pick input { position: absolute; inset: 0; margin: 0; opacity: 0; }
+.mood-pick span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 2px;
+  border-radius: 16px;
+  border: 2px solid var(--line);
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 700;
+}
+.mood-pick b { font-size: 28px; line-height: 1.1; }
+.mood-pick input:checked + span { border-color: var(--accent); background: var(--accent-soft); }
+.mood-pick input:focus-visible + span { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* ---------- Week ---------- */
 .week-nav {
   display: flex;
@@ -418,6 +529,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 800; }
   font-size: 14px;
 }
 .tab-icon { font-size: 24px; line-height: 1; }
+.tabbar .tab { font-size: 13px; padding: 0 2px; }
 .tab.is-active { background: var(--accent-soft); color: var(--ink); }
 
 /* ---------- Cycle ---------- */
