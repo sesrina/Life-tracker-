@@ -47,7 +47,7 @@ Double-click `index.html` to open it in your browser.
 Google requires every app that reads a calendar to have its own free "Client ID". You only make it once, and it takes about 15 minutes. A computer is easiest, but a phone browser in desktop mode works too. Google sometimes renames buttons, so look for the closest match.
 
 1. **Create a project.** Go to https://console.cloud.google.com and sign in with the Google account whose calendar you want. Accept the terms if asked. Click the project picker at the top, then **New project**, name it `My Planner`, and click **Create**. Make sure it's selected at the top.
-2. **Turn on the Calendar API.** Go to https://console.cloud.google.com/apis/library/calendar-json.googleapis.com and click **Enable**.
+2. **Turn on the Calendar and Tasks APIs.** Go to https://console.cloud.google.com/apis/library/calendar-json.googleapis.com and click **Enable**. Then do the same at https://console.cloud.google.com/apis/library/tasks.googleapis.com for Google Tasks.
 3. **Set up the sign-in screen.** Go to https://console.cloud.google.com/auth/overview and click **Get started**.
    - App name: `My Planner`. Support email: your email.
    - Audience: **External**.
@@ -60,11 +60,12 @@ Google requires every app that reads a calendar to have its own free "Client ID"
    - Click **Create**, then copy the **Client ID**. It ends in `.apps.googleusercontent.com`.
 6. **Connect.** Open the planner, tap **⚙️**, paste the Client ID, and tap **Connect Google Calendar**.
    - Google will say **"Google hasn't verified this app"**. That's expected for a personal app, so tap **Continue**.
-   - When it asks what the planner can access, **tick both calendar boxes**, then **Continue**.
+   - When it asks what the planner can access, **tick all the boxes** (calendar and tasks), then **Continue**.
 
 ### How it works
 - Events from every calendar that's ticked in Google Calendar appear in the planner, from 4 weeks ago to about 4 months ahead, and further as you browse weeks.
 - Tap a Google event to open it in Google Calendar.
+- **Google Tasks** show in the To-do list, and on Today and Week when they have a due date. Ticking one off in the planner ticks it off in Google too. Tap a task to open it in Google Tasks. (Google only shares a task's date, not its time.)
 - Planner events with **🗓️ Also in Google Calendar** switched on are added to your main Google calendar. Editing or deleting them in the planner updates Google too.
 - Google signs the planner out after about an hour. When that happens, tap the **🗓️** bar at the top to sync again. It usually takes a second. Changes you make in the meantime wait and are sent on the next sync.
 - To stop, use **Disconnect** in ⚙️ Settings. Your Google events stay in Google.

@@ -21,6 +21,9 @@
       range: ok && g.range && typeof g.range.from === 'string' ? g.range : null,
       lastSync: ok && typeof g.lastSync === 'number' ? g.lastSync : 0,
       pendingDeletes: ok && Array.isArray(g.pendingDeletes) ? g.pendingDeletes : [],
+      tasks: ok && Array.isArray(g.tasks) ? g.tasks : [],
+      needsReauth: ok ? !!g.needsReauth : false,
+      tasksOff: ok ? !!g.tasksOff : false,
     };
   }
 
@@ -302,7 +305,33 @@
     return mine.concat(theirs).sort(byTime).map((x) => x.html);
   }
 
+  // Local to-dos plus Google Tasks, in one list
+  function allTodos() {
+    const g = state.google.connected
+      ? state.google.tasks.map((t) => ({ ...t, isG: true, time: '', created: 0 }))
+      : [];
+    return state.todos.concat(g);
+  }
+
+  function gtaskHTML(t) {
+    const today = todayKey();
+    const overdue = !t.done && t.due && t.due < today;
+    const where = `Google Tasks${t.listName && t.listName !== 'My Tasks' ? ` · ${t.listName}` : ''}`;
+    const meta = (t.due ? `📅 ${relDay(t.due)}${overdue ? ' · overdue' : ''} · ` : '') + where;
+    const link = typeof t.link === 'string' && t.link.startsWith('https://') ? t.link : '';
+    return `<li class="item todo gtask${t.done ? ' done' : ''}${overdue ? ' overdue' : ''}" data-kind="gtask" data-id="${esc(t.id)}">
+      <button class="check" type="button" data-action="toggle" aria-pressed="${t.done ? 'true' : 'false'}" aria-label="${t.done ? 'Mark not done' : 'Mark done'}: ${esc(t.title)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </button>
+      ${link ? `<a class="item-main" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Open ${esc(t.title)} in Google Tasks">` : '<button class="item-main" type="button" data-action="edit">'}
+        <span class="item-title">${esc(t.title)}</span>
+        <span class="item-meta">${esc(meta)}</span>
+      ${link ? '</a>' : '</button>'}
+    </li>`;
+  }
+
   function todoHTML(t) {
+    if (t.isG) return gtaskHTML(t);
     const today = todayKey();
     const overdue = !t.done && t.due && t.due < today;
     let meta = '';
@@ -338,7 +367,7 @@
 
   function todaysTodos() {
     const key = todayKey();
-    return sortTodos(state.todos.filter((t) =>
+    return sortTodos(allTodos().filter((t) =>
       t.due === key ||                       // due today (done or not)
       (!t.done && t.due && t.due < key) ||   // overdue
       (!t.done && !t.due) ||                 // anytime
@@ -505,7 +534,7 @@
       const day = addDays(weekStart, i);
       const key = dateKey(day);
       const evs = dayEvents(key);
-      const tds = sortTodos(state.todos.filter((t) => t.due === key));
+      const tds = sortTodos(allTodos().filter((t) => t.due === key));
       const isToday = key === today;
       const rel = relDay(key);
       const label = ['Today', 'Tomorrow', 'Yesterday'].includes(rel)
@@ -530,8 +559,9 @@
   }
 
   function renderTodos() {
-    const active = state.todos.filter((t) => !t.done);
-    const done = state.todos.filter((t) => t.done);
+    const everything = allTodos();
+    const active = everything.filter((t) => !t.done);
+    const done = everything.filter((t) => t.done);
     $('#count-active').textContent = active.length ? `(${active.length})` : '';
     $('#count-done').textContent = done.length ? `(${done.length})` : '';
     $$('.chip').forEach((c) => {
@@ -540,10 +570,10 @@
       c.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
-    const list = todoFilter === 'active' ? active : todoFilter === 'done' ? done : state.todos;
+    const list = todoFilter === 'active' ? active : todoFilter === 'done' ? done : everything;
     const msg = todoFilter === 'done' ? 'Nothing ticked off yet — you got this 💪' : 'No to-dos! Type one above 🌱';
     $('#todo-list').innerHTML = list.length ? sortTodos(list).map(todoHTML).join('') : emptyHTML(msg);
-    $('#clear-done').hidden = !(done.length && todoFilter !== 'active');
+    $('#clear-done').hidden = !(state.todos.some((t) => t.done) && todoFilter !== 'active');
   }
 
   function render() {
@@ -760,6 +790,10 @@
     const li = actionBtn.closest('[data-kind]');
     if (!li) return;
     const { kind, id } = li.dataset;
+    if (kind === 'gtask') {
+      if (actionBtn.dataset.action === 'toggle') toggleGTask(id); else openGTask(id);
+      return;
+    }
     if (actionBtn.dataset.action === 'toggle') toggleTodo(id);
     else if (actionBtn.dataset.action === 'edit') openSheet(kind, id);
   });
@@ -910,9 +944,11 @@
   const G_TOKEN_KEY = 'cute-planner-gtoken';
   const G_NONCE_KEY = 'cute-planner-gnonce';
   const G_API = 'https://www.googleapis.com/calendar/v3';
+  const T_API = 'https://tasks.googleapis.com/tasks/v1';
   const G_SCOPES = [
     'https://www.googleapis.com/auth/calendar.readonly',
     'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/tasks',
   ];
   const settingsSheet = $('#settings-sheet');
   const fetchedWeeks = new Set();
@@ -985,9 +1021,10 @@
       exp: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000,
     }));
     state.google.connected = true;
+    state.google.needsReauth = false;
     save();
     if (!G_SCOPES.every((s) => granted.includes(s))) {
-      showToast('Tip: tick both calendar boxes on Google\'s screen so everything works');
+      showToast('Tip: tick all the boxes on Google\'s screen so everything works');
     }
     googleSync();
     return true;
@@ -998,7 +1035,7 @@
     if (!token) throw Object.assign(new Error('Please sign in to Google again'), { auth: true });
     const headers = { Authorization: `Bearer ${token}` };
     if (body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(G_API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    const res = await fetch(path.startsWith('https://') ? path : G_API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
     if (res.status === 401) {
       lsDel(G_TOKEN_KEY);
       throw Object.assign(new Error('Please sign in to Google again'), { auth: true });
@@ -1067,7 +1104,77 @@
   }
 
   const waitingCount = () =>
-    state.events.filter((e) => e.gSync && (e.gDirty || !e.gId)).length + state.google.pendingDeletes.length;
+    state.events.filter((e) => e.gSync && (e.gDirty || !e.gId)).length +
+    state.google.pendingDeletes.length +
+    state.google.tasks.filter((t) => t.dirty).length;
+
+  const isScopeError = (e) => e && e.status === 403 && /scope|insufficient|permission/i.test(e.message);
+  const isDisabledError = (e) => e && e.status === 403 && /disabled|has not been used|not enabled/i.test(e.message);
+
+  /* ---- Google Tasks ---- */
+  async function fetchGoogleTasks() {
+    const lists = await gApi(`${T_API}/users/@me/lists?maxResults=100`);
+    const cutoff = Date.now() - 14 * 86400000; // hide tasks finished more than 2 weeks ago
+    const out = [];
+    for (const l of lists.items || []) {
+      let pageToken = '';
+      do {
+        const q = new URLSearchParams({ showCompleted: 'true', showHidden: 'true', maxResults: '100' });
+        if (pageToken) q.set('pageToken', pageToken);
+        const r = await gApi(`${T_API}/lists/${encodeURIComponent(l.id)}/tasks?${q}`);
+        for (const t of r.items || []) {
+          if (t.deleted) continue;
+          const done = t.status === 'completed';
+          const comp = t.completed ? new Date(t.completed) : null;
+          if (done && comp && comp.getTime() < cutoff) continue;
+          out.push({
+            id: `${l.id}|${t.id}`,
+            tid: t.id,
+            list: l.id,
+            listName: l.title || 'Tasks',
+            title: t.title || '(No title)',
+            due: typeof t.due === 'string' ? t.due.slice(0, 10) : '',
+            done,
+            doneOn: comp && !isNaN(comp) ? dateKey(comp) : '',
+            link: typeof t.webViewLink === 'string' && t.webViewLink.startsWith('https://') ? t.webViewLink : '',
+          });
+        }
+        pageToken = r.nextPageToken || '';
+      } while (pageToken);
+    }
+    return out;
+  }
+
+  function tasksError(e) {
+    if (isDisabledError(e)) {
+      state.google.tasksOff = true;
+      showToast('To see Google Tasks, turn on the Tasks API in Google Cloud');
+    } else if (isScopeError(e)) {
+      state.google.needsReauth = true;
+      showToast('Tap the 🗓️ bar to let the planner see your Google Tasks');
+    } else {
+      showToast(`Google Tasks: ${e.message}`);
+    }
+  }
+
+  function toggleGTask(id) {
+    const t = state.google.tasks.find((x) => x.id === id);
+    if (!t) return;
+    t.done = !t.done;
+    t.doneOn = t.done ? todayKey() : '';
+    t.dirty = true;
+    save();
+    render();
+    if (t.done) showToast('Nice one! 🎉');
+    googlePush(true);
+  }
+
+  function openGTask(id) {
+    const t = state.google.tasks.find((x) => x.id === id);
+    if (!t) return;
+    if (t.link) window.open(t.link, '_blank', 'noopener');
+    else showToast('You can edit this task in the Google Tasks app');
+  }
 
   // Send planner changes (new, edited, deleted events) to Google
   async function pushPending() {
@@ -1078,6 +1185,22 @@
         if (e.status !== 404 && e.status !== 410) throw e; // already gone is fine
       }
       state.google.pendingDeletes = state.google.pendingDeletes.filter((x) => x !== gid);
+      save();
+    }
+    for (const t of state.google.tasks) {
+      if (!t.dirty) continue;
+      try {
+        await gApi(`${T_API}/lists/${encodeURIComponent(t.list)}/tasks/${encodeURIComponent(t.tid)}`, {
+          method: 'PATCH',
+          body: t.done ? { status: 'completed' } : { status: 'needsAction', completed: null },
+        });
+        t.dirty = false;
+      } catch (e) {
+        if (e.auth) throw e;
+        if (e.status === 404 || e.status === 410) t.dirty = false;
+        else if (isScopeError(e) || isDisabledError(e)) { tasksError(e); break; }
+        else throw e;
+      }
       save();
     }
     for (const ev of state.events) {
@@ -1128,6 +1251,16 @@
       state.google.range = { from: dateKey(from), to: dateKey(to) };
       state.google.lastSync = Date.now();
       fetchedWeeks.clear();
+      try {
+        const fresh = await fetchGoogleTasks();
+        const waiting = new Map(state.google.tasks.filter((t) => t.dirty).map((t) => [t.id, t]));
+        state.google.tasks = fresh.map((t) => waiting.get(t.id) || t);
+        state.google.needsReauth = false;
+        state.google.tasksOff = false;
+      } catch (e) {
+        if (e.auth) throw e;
+        tasksError(e);
+      }
       save();
     } catch (e) {
       googleError(e);
@@ -1162,12 +1295,13 @@
   function renderGBar() {
     const btn = $('#gsync');
     const g = state.google;
-    const show = g.connected && (currentView === 'today' || currentView === 'week');
+    const show = g.connected && (currentView === 'today' || currentView === 'week' || currentView === 'todos');
     btn.hidden = !show;
     if (!show) return;
     const waiting = waitingCount();
     let text;
     if (syncing) text = '🗓️ Syncing with Google…';
+    else if (g.needsReauth) text = '🗓️ Tap to allow Google Tasks';
     else if (!getToken()) text = `🗓️ Tap to sync with Google${waiting ? ` · ${waiting} waiting to send` : ''}`;
     else text = `🗓️ Google synced ${ago(g.lastSync)}${waiting ? ` · ${waiting} waiting` : ''} · tap to refresh`;
     btn.textContent = text;
@@ -1182,6 +1316,8 @@
     else if (!g.connected) status = 'Ready to connect.';
     else if (live) status = `Connected ✅ · synced ${ago(g.lastSync)}`;
     else status = 'Connected ✅ · Google signs you out after about an hour, so tap Sync now to refresh.';
+    if (g.connected && g.tasksOff) status += ' Google Tasks is off: turn on the Tasks API in Google Cloud.';
+    if (g.connected && g.needsReauth) status += ' Tap Sync now to allow Google Tasks.';
     $('#g-status').textContent = status;
     $('#g-client-field').hidden = g.connected;
     $('#g-connect').hidden = g.connected;
@@ -1214,7 +1350,8 @@
   });
   $('#g-sync').addEventListener('click', () => {
     settingsSheet.close();
-    if (getToken()) googleSync(); else startGoogleAuth(true);
+    if (state.google.needsReauth) startGoogleAuth(false);
+    else if (getToken()) googleSync(); else startGoogleAuth(true);
   });
   $('#g-autopush').addEventListener('change', (e) => { state.google.autoPush = e.target.checked; save(); });
   $('#g-disconnect').addEventListener('click', () => {
@@ -1229,7 +1366,8 @@
     showToast('Google Calendar disconnected');
   });
   $('#gsync').addEventListener('click', () => {
-    if (getToken()) googleSync(); else startGoogleAuth(true);
+    if (state.google.needsReauth) startGoogleAuth(false);
+    else if (getToken()) googleSync(); else startGoogleAuth(true);
   });
 
   // Pick up changes made in another tab
