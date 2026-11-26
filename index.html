@@ -38,13 +38,18 @@
           <p class="hello-sub" id="today-summary"></p>
           <div class="progress" aria-hidden="true"><div class="progress-bar" id="today-progress"></div></div>
         </div>
+        <div class="upnext" id="upnext" hidden aria-live="polite"></div>
+        <button class="btn primary wide focus-btn" type="button" id="focus-start" hidden>🎯 Focus mode</button>
         <section class="routine-card" id="routine-card" hidden>
           <div class="routine-head">
             <div>
               <h2 id="routine-title">☀️ Morning routine</h2>
               <p class="routine-sub" id="routine-sub"></p>
             </div>
-            <button class="link-btn" type="button" id="routine-edit">Edit</button>
+            <div class="routine-btns">
+              <button class="btn-add" type="button" id="routine-start">▶️ Start</button>
+              <button class="link-btn" type="button" id="routine-edit">Edit</button>
+            </div>
           </div>
           <ul class="routine-list" id="routine-list"></ul>
         </section>
@@ -62,6 +67,7 @@
           <button class="btn-add" type="button" data-add="todo" data-date="today">+ To-do</button>
         </div>
         <ul class="list" id="today-todos"></ul>
+        <button class="link-btn more-btn" type="button" id="today-more" hidden></button>
 
         <div id="tomorrow-block" hidden>
           <div class="section-head">
@@ -222,6 +228,8 @@
     <button class="tab" type="button" data-view="journal"><span class="tab-icon">📓</span><span>Journal</span></button>
   </nav>
 
+  <button class="fab" type="button" id="brain-dump" aria-label="Brain dump: quickly jot something down">🧠</button>
+
   <!-- Add / edit sheet -->
   <dialog id="sheet" class="sheet" aria-labelledby="sheet-title">
     <form id="sheet-form" novalidate autocomplete="off">
@@ -272,6 +280,61 @@
   </dialog>
 
   <!-- Cycle day sheet -->
+  <!-- Focus mode -->
+  <dialog id="focus-sheet" class="focus" aria-labelledby="focus-title">
+    <div class="focus-body">
+      <div class="focus-top">
+        <span class="focus-count" id="focus-count"></span>
+        <button class="icon-btn" type="button" id="focus-close" aria-label="Close focus mode">✕</button>
+      </div>
+      <div id="focus-main">
+        <p class="focus-kicker" id="focus-kicker">Right now, just this:</p>
+        <h2 class="focus-title" id="focus-title"></h2>
+        <p class="focus-meta" id="focus-meta"></p>
+        <div class="timer" aria-hidden="true">
+          <svg viewBox="0 0 120 120" class="timer-ring">
+            <circle class="track" cx="60" cy="60" r="52"></circle>
+            <circle class="prog" id="timer-prog" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="timer-text" id="timer-text">10:00</div>
+        </div>
+        <div class="chips timer-pick" id="timer-pick">
+          <button class="chip" type="button" data-min="5">5 min</button>
+          <button class="chip is-active" type="button" data-min="10">10 min</button>
+          <button class="chip" type="button" data-min="25">25 min</button>
+        </div>
+        <button class="btn ghost wide" type="button" id="timer-toggle">▶️ Start timer</button>
+        <div class="focus-actions">
+          <button class="btn ghost" type="button" id="focus-skip">⏭️ Later</button>
+          <button class="btn primary" type="button" id="focus-done">✅ Done!</button>
+        </div>
+      </div>
+      <div id="focus-finished" hidden>
+        <div class="big-emoji">🎉</div>
+        <h2 class="focus-title">All done!</h2>
+        <p class="focus-meta" id="focus-finished-msg">That's everything. Go you! 💖</p>
+        <button class="btn primary wide" type="button" id="focus-finish-close">Back to Today</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Brain dump -->
+  <dialog id="dump-sheet" class="sheet" aria-labelledby="dump-title">
+    <form id="dump-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="dump-title">🧠 Brain dump</h2>
+      <p class="hint">Type whatever's in your head, one thing per line. It all goes into your to-dos so you don't have to hold onto it.</p>
+      <label class="field">
+        <span>What's on your mind?</span>
+        <textarea id="dump-text" rows="6" placeholder="Buy cotton pads&#10;Text Mum back&#10;Book car WOF"></textarea>
+      </label>
+      <div class="sheet-actions">
+        <button class="btn ghost" type="button" id="dump-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save to to-dos</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Journal entry -->
   <dialog id="journal-sheet" class="sheet" aria-labelledby="journal-title">
     <form id="journal-form" class="sheet-body" novalidate autocomplete="off">

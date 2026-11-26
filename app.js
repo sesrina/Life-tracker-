@@ -444,7 +444,12 @@
     Object.keys(state.routine.done).forEach((k) => { if (k < cutoff) delete state.routine.done[k]; });
     save();
     render();
-    if (day[`${slot}All`] && !wasAll) showToast(slot === 'morning' ? 'Morning routine done! Have a great day ☀️' : 'All done. Sleep well 🌙');
+    if (day[`${slot}All`] && !wasAll) {
+      showToast(slot === 'morning' ? 'Morning routine done! Have a great day ☀️' : 'All done. Sleep well 🌙');
+      celebrate(true);
+    } else if (list.includes(id)) {
+      celebrate(false);
+    }
   }
 
   /* ================= Views ================= */
@@ -496,9 +501,19 @@
     $('#today-events').innerHTML = events.length
       ? events.join('')
       : emptyHTML('No events today ✨');
-    $('#today-todos').innerHTML = todos.length
-      ? todos.map(todoHTML).join('')
+    // Only the next 3 to-dos, so it never feels like too much
+    const pending = todos.filter((t) => !t.done);
+    const collapsed = !showAllToday && pending.length > 3;
+    const shown = collapsed ? pending.slice(0, 3) : todos;
+    $('#today-todos').innerHTML = shown.length
+      ? shown.map(todoHTML).join('')
       : emptyHTML('All clear! Add a to-do to get started 🌱');
+    const more = $('#today-more');
+    more.hidden = !(collapsed || (showAllToday && pending.length > 3));
+    more.textContent = collapsed ? `Show ${todos.length - 3} more` : 'Just show the next 3';
+    $('#focus-start').hidden = !pending.length;
+    $('#focus-start').textContent = `🎯 Focus mode · ${plural(pending.length, 'thing')} to do`;
+    renderUpNext();
 
     // Evening mode: from 8 pm, show what's coming tomorrow
     const evening = hour >= 20;
@@ -742,7 +757,7 @@
     t.doneOn = t.done ? todayKey() : null;
     save();
     render();
-    if (t.done) showToast('Nice one! 🎉');
+    if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
   }
 
   let lastDeleted = null;
@@ -992,7 +1007,7 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open) return;
+    if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -1086,6 +1101,224 @@
   });
   $('#month-today').addEventListener('click', () => {
     const n = new Date(); monthCursor = new Date(n.getFullYear(), n.getMonth(), 1); render();
+  });
+
+  /* ================= ADHD helpers: rewards, up next, focus, brain dump ================= */
+  const CHEERS = ['Nice one! 🎉', 'Boom, done! 💥', 'Look at you go ✨', 'One less thing to think about 🧠',
+    "You're on a roll 🔥", 'Yesss! 🙌', 'Proud of you 💖', 'Smashed it 💪'];
+  let showAllToday = false;
+
+  function celebrate(big) {
+    try { if (navigator.vibrate) navigator.vibrate(big ? [30, 40, 30] : 20); } catch (e) { /* ignore */ }
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const layer = document.createElement('div');
+    layer.className = 'confetti';
+    layer.setAttribute('aria-hidden', 'true');
+    const colours = ['var(--ch-mood)', 'var(--ch-follicular)', 'var(--ch-ovulation)', 'var(--ch-luteal)', 'var(--mint)', 'var(--peach)'];
+    const emojis = ['✨', '💖', '🌸', '⭐', '🎉'];
+    const n = big ? 64 : 26;
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement('span');
+      if (i % 4 === 0) { s.className = 'emo'; s.textContent = emojis[i % emojis.length]; } else s.style.background = colours[i % colours.length];
+      s.style.setProperty('--x', `${(Math.random() * 2 - 1) * (big ? 48 : 32)}vw`);
+      s.style.setProperty('--y', `${-(20 + Math.random() * (big ? 50 : 30))}vh`);
+      s.style.setProperty('--r', `${Math.round(Math.random() * 720 - 360)}deg`);
+      s.style.setProperty('--d', `${Math.random() * 0.15}s`);
+      layer.appendChild(s);
+    }
+    document.body.appendChild(layer);
+    setTimeout(() => layer.remove(), 1900);
+  }
+
+  // ---- Up next ----
+  const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  function timedOn(key) {
+    return state.events.filter((e) => e.date === key && e.time).map((e) => ({ title: e.title, time: e.time }))
+      .concat(gEventsOn(key).filter((g) => !g.allDay && g.time).map((g) => ({ title: g.title, time: g.time })))
+      .sort(byTime);
+  }
+  function renderUpNext() {
+    const el = $('#upnext');
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    let u = null;
+    const next = timedOn(todayKey()).find((x) => toMin(x.time) >= nowMin - 15);
+    if (next) {
+      const diff = toMin(next.time) - nowMin;
+      let when;
+      if (diff <= 0) when = 'happening now';
+      else if (diff < 60) when = `in ${diff} min`;
+      else when = `in ${Math.floor(diff / 60)} h${diff % 60 ? ` ${diff % 60} min` : ''}`;
+      u = { title: next.title, when, at: fmtTime(next.time), soon: diff <= 30 };
+    } else {
+      const tm = timedOn(dateKey(addDays(now, 1)))[0];
+      if (tm) u = { title: tm.title, when: 'tomorrow', at: fmtTime(tm.time), soon: false };
+    }
+    el.hidden = !u;
+    if (!u) return;
+    el.classList.toggle('is-soon', u.soon);
+    el.innerHTML = `<span class="upnext-label">⏰ Up next</span><span class="upnext-title">${esc(u.title)}</span><span class="upnext-when">${esc(u.when)} · ${esc(u.at)}</span>`;
+  }
+  setInterval(() => { if (currentView === 'today' && !document.hidden) renderUpNext(); }, 30 * 1000);
+
+  // ---- Focus mode: one thing at a time ----
+  const focusSheet = $('#focus-sheet');
+  const RING = 326.73;
+  let focusQueue = [];
+  let focusIdx = 0;
+  let focusKind = 'todo';
+  let focusSlot = null;
+  let timerMin = 10;
+  let timerLeft = 600;
+  let timerEnd = 0;
+  let timerId = null;
+  let wakeLock = null;
+  let audioCtx = null;
+
+  function openFocus(kind) {
+    focusKind = kind;
+    if (kind === 'routine') {
+      focusSlot = routineSlot(new Date().getHours());
+      const doneSteps = routineDay(todayKey())[focusSlot] || [];
+      focusQueue = (focusSlot ? state.routine[focusSlot] : []).filter((s) => !doneSteps.includes(s.id))
+        .map((s) => ({ id: s.id, title: s.title, meta: focusSlot === 'morning' ? '☀️ Morning routine' : '🌙 Night routine' }));
+    } else {
+      const tk = todayKey();
+      focusQueue = todaysTodos().filter((t) => !t.done).map((t) => ({
+        id: t.id,
+        isG: !!t.isG,
+        title: t.title,
+        meta: t.due ? `${relDay(t.due)}${t.time ? ` · ${fmtTime(t.time)}` : ''}${t.due < tk ? ' · overdue' : ''}` : '',
+      }));
+    }
+    if (!focusQueue.length) { showToast('Nothing left here. Nice! 🌸'); return; }
+    focusIdx = 0;
+    setTimer(kind === 'routine' ? 5 : timerMin);
+    renderFocus();
+    focusSheet.showModal();
+  }
+
+  function renderFocus() {
+    const finished = focusIdx >= focusQueue.length;
+    $('#focus-main').hidden = finished;
+    $('#focus-finished').hidden = !finished;
+    if (finished) {
+      $('#focus-count').textContent = '';
+      $('#focus-finished-msg').textContent = focusKind === 'routine' ? 'Routine complete. Go you! 💖' : "That's everything for today. Go you! 💖";
+      stopTimer();
+      celebrate(true);
+      return;
+    }
+    const item = focusQueue[focusIdx];
+    const left = focusQueue.length - focusIdx;
+    $('#focus-count').textContent = left === 1 ? 'Last one!' : `${left} left`;
+    $('#focus-kicker').textContent = 'Right now, just this:';
+    $('#focus-title').textContent = item.title;
+    $('#focus-meta').textContent = item.meta || '';
+    $('#focus-skip').hidden = left === 1;
+  }
+
+  function drawTimer() {
+    const total = timerMin * 60;
+    const m = Math.floor(timerLeft / 60);
+    const s = Math.floor(timerLeft % 60);
+    $('#timer-text').textContent = `${m}:${pad(s)}`;
+    $('#timer-prog').style.strokeDashoffset = String(RING * (1 - timerLeft / total));
+    $('#timer-toggle').textContent = timerId ? '⏸️ Pause' : timerLeft > 0 && timerLeft < total ? '▶️ Keep going' : '▶️ Start timer';
+    $$('#timer-pick .chip').forEach((c) => c.classList.toggle('is-active', Number(c.dataset.min) === timerMin));
+  }
+  function setTimer(min) { stopTimer(); timerMin = min; timerLeft = min * 60; drawTimer(); }
+  function startTimer() {
+    if (timerLeft <= 0) timerLeft = timerMin * 60;
+    timerEnd = Date.now() + timerLeft * 1000;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      audioCtx.resume();
+    } catch (e) { audioCtx = null; }
+    try {
+      if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then((l) => { wakeLock = l; }).catch(() => {});
+    } catch (e) { /* ignore */ }
+    timerId = setInterval(tickTimer, 250);
+    drawTimer();
+  }
+  function stopTimer() {
+    clearInterval(timerId);
+    timerId = null;
+    try { if (wakeLock) wakeLock.release(); } catch (e) { /* ignore */ }
+    wakeLock = null;
+    drawTimer();
+  }
+  function chime() {
+    if (!audioCtx) return;
+    [0, 0.35, 0.7].forEach((t, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.value = [660, 880, 990][i];
+      g.gain.setValueAtTime(0.0001, audioCtx.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + t + 0.3);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(audioCtx.currentTime + t);
+      o.stop(audioCtx.currentTime + t + 0.32);
+    });
+  }
+  function tickTimer() {
+    timerLeft = Math.max(0, (timerEnd - Date.now()) / 1000);
+    drawTimer();
+    if (timerLeft <= 0) {
+      stopTimer();
+      chime();
+      try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) { /* ignore */ }
+      $('#focus-kicker').textContent = "⏰ Time's up! Done, or another round?";
+    }
+  }
+
+  $('#timer-toggle').addEventListener('click', () => { if (timerId) stopTimer(); else startTimer(); });
+  $$('#timer-pick .chip').forEach((c) => c.addEventListener('click', () => setTimer(Number(c.dataset.min))));
+  $('#focus-done').addEventListener('click', () => {
+    const item = focusQueue[focusIdx];
+    if (!item) return;
+    if (focusKind === 'routine') toggleStep(focusSlot, item.id);
+    else if (item.isG) toggleGTask(item.id);
+    else toggleTodo(item.id);
+    focusIdx++;
+    setTimer(timerMin);
+    renderFocus();
+  });
+  $('#focus-skip').addEventListener('click', () => {
+    if (focusQueue.length - focusIdx <= 1) return;
+    focusQueue.push(focusQueue.splice(focusIdx, 1)[0]); // come back to it later
+    setTimer(timerMin);
+    renderFocus();
+  });
+  const closeFocus = () => { if (focusSheet.open) focusSheet.close(); };
+  $('#focus-close').addEventListener('click', closeFocus);
+  $('#focus-finish-close').addEventListener('click', closeFocus);
+  focusSheet.addEventListener('close', () => { stopTimer(); render(); });
+  $('#focus-start').addEventListener('click', () => openFocus('todo'));
+  $('#routine-start').addEventListener('click', () => openFocus('routine'));
+  $('#today-more').addEventListener('click', () => { showAllToday = !showAllToday; render(); });
+
+  // ---- Brain dump ----
+  const dumpSheet = $('#dump-sheet');
+  $('#brain-dump').addEventListener('click', () => {
+    $('#dump-text').value = '';
+    dumpSheet.showModal();
+    setTimeout(() => $('#dump-text').focus(), 50);
+  });
+  $('#dump-cancel').addEventListener('click', () => dumpSheet.close());
+  dumpSheet.addEventListener('click', (e) => { if (e.target === dumpSheet) dumpSheet.close(); });
+  $('#dump-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const lines = $('#dump-text').value.split('\n').map((l) => l.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 50);
+    if (!lines.length) { dumpSheet.close(); return; }
+    lines.forEach((title, i) => state.todos.push({ id: uid(), created: Date.now() + i, title: title.slice(0, 120), due: '', time: '', done: false }));
+    save();
+    dumpSheet.close();
+    render();
+    showToast(`${plural(lines.length, 'thing')} out of your head and into your to-dos 🧠✨`);
+    celebrate(false);
   });
 
   /* ================= Journal ================= */
@@ -1760,7 +1993,7 @@
     t.dirty = true;
     save();
     render();
-    if (t.done) showToast('Nice one! 🎉');
+    if (t.done) { showToast(CHEERS[Math.floor(Math.random() * CHEERS.length)]); celebrate(false); }
     googlePush(true);
   }
 

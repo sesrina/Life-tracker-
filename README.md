@@ -13,6 +13,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Journal**: a daily entry with mood, energy, a few lines about the day and one good thing. See your mood over the last 30 days (with cycle phases underneath), patterns by weekday, by cycle phase and with or without your routines, look-backs to a week ago, the same point last cycle and a month ago, plus search
 - **Privacy lock**: a 4-digit PIN for the Journal and Cycle tabs (⚙️ Settings). They lock again whenever you leave the app
 - **Backups**: ⚙️ Settings → Backup saves a password-protected file (to Files, iCloud Drive or email) and can restore it on any phone. Keep the password safe: without it the backup can't be opened
+- **Made for ADHD brains**: an *Up next* card with a live countdown, *Focus mode* (one thing at a time, a visual timer with a chime, Done or Later), routines you can play step by step, only the next 3 to-dos on Today, confetti and cheers when you tick things off, and a floating 🧠 *Brain dump* button to empty your head into your to-dos
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 
