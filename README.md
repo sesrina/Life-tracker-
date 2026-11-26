@@ -6,6 +6,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Week**: a Monday–Sunday view. Tap **+** to add an event on a day, tap an event to edit or delete it, and swipe or use ‹ › to change week
 - **To-do**: quick-add to-dos and tick them off. Tap a to-do to give it a date and time so it becomes a reminder
 - **Cycle**: a period tracker. Tap "My period started" (and "Still on my period" on the days after), or tap any day on the month calendar to log flow, symptoms and a note. It learns your average cycle, predicts your next period and shows an estimated fertile window. It also shows which phase you're in (menstrual 🩸, follicular 🌱, ovulation ✨ or luteal 🍂), with a short explanation, self-care tips and a coloured line under each calendar date. Predictions are estimates only and aren't suitable for contraception. You can hide the cycle line on the Today screen with a switch at the bottom of the Cycle tab
+- **Google Calendar**: connect it from ⚙️ Settings to see all your Google events on the Today and Week screens, and to send planner events to Google (see the setup below)
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 
@@ -40,3 +41,30 @@ Double-click `index.html` to open it in your browser.
 - Your data lives only in the browser you use it in. Your phone and your laptop each keep their own separate copy.
 - Clearing your browser's website data, or using private/incognito mode, will erase or skip saved data.
 - Reminders show up in the app (with ⏰ and an "overdue" label), but they don't send phone notifications.
+
+## Connecting Google Calendar (one-time setup)
+
+Google requires every app that reads a calendar to have its own free "Client ID". You only make it once, and it takes about 15 minutes. A computer is easiest, but a phone browser in desktop mode works too. Google sometimes renames buttons, so look for the closest match.
+
+1. **Create a project.** Go to https://console.cloud.google.com and sign in with the Google account whose calendar you want. Accept the terms if asked. Click the project picker at the top, then **New project**, name it `My Planner`, and click **Create**. Make sure it's selected at the top.
+2. **Turn on the Calendar API.** Go to https://console.cloud.google.com/apis/library/calendar-json.googleapis.com and click **Enable**.
+3. **Set up the sign-in screen.** Go to https://console.cloud.google.com/auth/overview and click **Get started**.
+   - App name: `My Planner`. Support email: your email.
+   - Audience: **External**.
+   - Contact email: your email. Tick the agreement, then **Create**.
+4. **Add yourself as a tester.** In the left menu, open **Audience**. Under **Test users**, click **Add users**, enter your Gmail address, and **Save**.
+5. **Create the Client ID.** In the left menu, open **Clients**, then **Create client**.
+   - Application type: **Web application**. Name: `My Planner`.
+   - **Authorized JavaScript origins**, click Add URI: `https://sesrina.github.io`
+   - **Authorized redirect URIs**, click Add URI: `https://sesrina.github.io/Life-tracker-/` (keep the slash at the end)
+   - Click **Create**, then copy the **Client ID**. It ends in `.apps.googleusercontent.com`.
+6. **Connect.** Open the planner, tap **⚙️**, paste the Client ID, and tap **Connect Google Calendar**.
+   - Google will say **"Google hasn't verified this app"**. That's expected for a personal app, so tap **Continue**.
+   - When it asks what the planner can access, **tick both calendar boxes**, then **Continue**.
+
+### How it works
+- Events from every calendar that's ticked in Google Calendar appear in the planner, from 4 weeks ago to about 4 months ahead, and further as you browse weeks.
+- Tap a Google event to open it in Google Calendar.
+- Planner events with **🗓️ Also in Google Calendar** switched on are added to your main Google calendar. Editing or deleting them in the planner updates Google too.
+- Google signs the planner out after about an hour. When that happens, tap the **🗓️** bar at the top to sync again. It usually takes a second. Changes you make in the meantime wait and are sent on the next sync.
+- To stop, use **Disconnect** in ⚙️ Settings. Your Google events stay in Google.

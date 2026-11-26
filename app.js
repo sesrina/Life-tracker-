@@ -11,6 +11,19 @@
     return { days, showOnToday: ok ? c.showOnToday !== false : true };
   }
 
+  function normGoogle(g) {
+    const ok = g && typeof g === 'object';
+    return {
+      clientId: ok && typeof g.clientId === 'string' ? g.clientId : '',
+      connected: ok ? !!g.connected : false,
+      autoPush: ok ? g.autoPush !== false : true,
+      events: ok && Array.isArray(g.events) ? g.events : [],
+      range: ok && g.range && typeof g.range.from === 'string' ? g.range : null,
+      lastSync: ok && typeof g.lastSync === 'number' ? g.lastSync : 0,
+      pendingDeletes: ok && Array.isArray(g.pendingDeletes) ? g.pendingDeletes : [],
+    };
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -20,12 +33,13 @@
           events: Array.isArray(data.events) ? data.events : [],
           todos: Array.isArray(data.todos) ? data.todos : [],
           cycle: normCycle(data.cycle),
+          google: normGoogle(data.google),
         };
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
     }
-    return { events: [], todos: [], cycle: normCycle(null) };
+    return { events: [], todos: [], cycle: normCycle(null), google: normGoogle(null) };
   }
 
   function save() {
@@ -254,8 +268,38 @@
       <button class="item-main" type="button" data-action="edit" aria-label="Edit event ${esc(ev.title)}">
         <span class="time-pill">${ev.time ? esc(fmtTime(ev.time)) : 'All day'}</span>
         <span class="item-title">${esc(ev.title)}</span>
+        ${ev.gSync && state.google.connected ? '<span class="g-badge" title="Also in Google Calendar">🗓️</span>' : ''}
       </button>
     </li>`;
+  }
+
+  const safeHex = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#7fc4ec');
+
+  function gEventHTML(g) {
+    const time = g.allDay ? 'All day' : fmtTime(g.time);
+    const inner = `<span class="time-pill">${esc(time)}</span>
+      <span class="g-text"><span class="item-title">${esc(g.title)}</span><span class="item-meta">${esc(g.calName || 'Google')}</span></span>`;
+    const link = typeof g.link === 'string' && g.link.startsWith('https://') ? g.link : '';
+    return `<li class="item event gcal" style="--gc:${safeHex(g.color)}">${link
+      ? `<a class="item-main" href="${esc(link)}" target="_blank" rel="noopener" aria-label="${esc(g.title)}, open in Google Calendar">${inner}</a>`
+      : `<div class="item-main">${inner}</div>`}</li>`;
+  }
+
+  // Google events on a given day (skipping ones that are copies of planner events)
+  function gEventsOn(key) {
+    if (!state.google.connected) return [];
+    const mine = new Set(state.events.map((e) => e.gId).filter(Boolean));
+    return state.google.events.filter((g) => {
+      if (g.primary && mine.has(g.gid)) return false;
+      return g.allDay ? g.start <= key && key < g.end : g.start === key;
+    });
+  }
+
+  // Planner + Google events for a day, sorted by time
+  function dayEvents(key) {
+    const mine = state.events.filter((e) => e.date === key).map((e) => ({ time: e.time || '', title: e.title, html: eventHTML(e) }));
+    const theirs = gEventsOn(key).map((g) => ({ time: g.allDay ? '' : g.time, title: g.title, html: gEventHTML(g) }));
+    return mine.concat(theirs).sort(byTime).map((x) => x.html);
   }
 
   function todoHTML(t) {
@@ -308,7 +352,7 @@
     const hour = now.getHours();
     const greeting = hour < 12 ? 'Good morning ☀️' : hour < 18 ? 'Good afternoon 🌤️' : 'Good evening 🌙';
 
-    const events = state.events.filter((e) => e.date === key).sort(byTime);
+    const events = dayEvents(key);
     const todos = todaysTodos();
     const done = todos.filter((t) => t.done).length;
 
@@ -325,7 +369,7 @@
     $('#today-progress').style.width = todos.length ? `${Math.round((done / todos.length) * 100)}%` : '0%';
 
     $('#today-events').innerHTML = events.length
-      ? events.map(eventHTML).join('')
+      ? events.join('')
       : emptyHTML('No events today ✨');
     $('#today-todos').innerHTML = todos.length
       ? todos.map(todoHTML).join('')
@@ -460,7 +504,7 @@
     for (let i = 0; i < 7; i++) {
       const day = addDays(weekStart, i);
       const key = dateKey(day);
-      const evs = state.events.filter((e) => e.date === key).sort(byTime);
+      const evs = dayEvents(key);
       const tds = sortTodos(state.todos.filter((t) => t.due === key));
       const isToday = key === today;
       const rel = relDay(key);
@@ -477,11 +521,12 @@
           <div class="day-title">${esc(label)}<small>${esc(day.toLocaleDateString([], { day: 'numeric', month: 'long' }))}</small></div>
           <button class="btn-add" type="button" data-add="event" data-date="${key}" aria-label="Add event on ${esc(day.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }))}">+</button>
         </div>
-        <ul class="list">${evs.length ? evs.map(eventHTML).join('') : (tds.length ? '' : emptyHTML('Free day 🌸'))}</ul>
+        <ul class="list">${evs.length ? evs.join('') : (tds.length ? '' : emptyHTML('Free day 🌸'))}</ul>
         ${tds.length ? `<ul class="list">${tds.map(todoHTML).join('')}</ul>` : ''}
       </section>`;
     }
     $('#week-days').innerHTML = html;
+    maybeFetchWeek();
   }
 
   function renderTodos() {
@@ -506,6 +551,7 @@
     if (currentView === 'week') renderWeek();
     if (currentView === 'todos') renderTodos();
     if (currentView === 'cycle') renderCycle();
+    renderGBar();
     renderHeader();
   }
 
@@ -545,9 +591,12 @@
     if (index < 0) return;
     const [item] = list.splice(index, 1);
     lastDeleted = { kind, item, index };
+    const fromGoogle = kind === 'event' && item.gId && item.gSync;
+    if (fromGoogle) state.google.pendingDeletes.push(item.gId);
     save();
     render();
-    showToast(kind === 'event' ? 'Event deleted' : 'To-do deleted', true);
+    showToast(kind === 'event' ? (fromGoogle ? 'Deleted here and in Google' : 'Event deleted') : 'To-do deleted', true);
+    if (fromGoogle) googlePush(true); // quiet, so the Undo button stays visible
   }
 
   function undoDelete() {
@@ -556,6 +605,12 @@
     const list = kind === 'event' ? state.events : state.todos;
     list.splice(Math.min(index, list.length), 0, item);
     lastDeleted = null;
+    if (kind === 'event' && item.gId && item.gSync) {
+      const pd = state.google.pendingDeletes;
+      if (pd.includes(item.gId)) state.google.pendingDeletes = pd.filter((x) => x !== item.gId);
+      else { item.gId = null; item.gDirty = true; } // already removed from Google, so add it again
+      googlePush();
+    }
     save();
     render();
     showToast('Restored 🌸');
@@ -599,6 +654,8 @@
     const color = item ? safeColor(item.color) : 'pink';
     $$('input[name="color"]').forEach((r) => { r.checked = r.value === color; });
     $('#btn-delete').hidden = !item;
+    $('#f-gsync-row').hidden = !(isEvent && state.google.connected);
+    $('#f-gsync').checked = item ? !!item.gSync : state.google.autoPush;
     fError.hidden = true;
 
     sheet.showModal();
@@ -628,6 +685,10 @@
       if (!fDate.value) return showError('Events need a date', fDate);
       const color = ($('input[name="color"]:checked') || {}).value;
       data = { title, date: fDate.value, time: fTime.value, color: safeColor(color) };
+      if (state.google.connected) {
+        data.gSync = $('#f-gsync').checked;
+        if (data.gSync) data.gDirty = true;
+      }
     } else {
       let due = fDate.value;
       const time = fTime.value;
@@ -646,6 +707,7 @@
     closeSheet();
     render();
     showToast(id ? 'Saved ✨' : kind === 'event' ? 'Event added 🗓️' : 'To-do added 🌷');
+    if (kind === 'event' && data.gSync) googlePush();
   });
 
   $('#btn-cancel').addEventListener('click', closeSheet);
@@ -754,12 +816,13 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open || daySheet.open) return;
+    if (sheet.open || daySheet.open || settingsSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
     }
     render();
+    maybeAutoSync();
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshIfNeeded(); });
   setInterval(refreshIfNeeded, 60 * 1000);
@@ -843,10 +906,337 @@
     const n = new Date(); monthCursor = new Date(n.getFullYear(), n.getMonth(), 1); render();
   });
 
+  /* ================= Google Calendar ================= */
+  const G_TOKEN_KEY = 'cute-planner-gtoken';
+  const G_NONCE_KEY = 'cute-planner-gnonce';
+  const G_API = 'https://www.googleapis.com/calendar/v3';
+  const G_SCOPES = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events',
+  ];
+  const settingsSheet = $('#settings-sheet');
+  const fetchedWeeks = new Set();
+  let syncing = false;
+
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } };
+  const lsDel = (k) => { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } };
+
+  const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, '');
+
+  function getToken() {
+    try {
+      const t = JSON.parse(lsGet(G_TOKEN_KEY) || 'null');
+      if (t && t.token && t.exp > Date.now() + 60 * 1000) return t.token;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function ago(ts) {
+    if (!ts) return 'never';
+    const mins = Math.round((Date.now() - ts) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    if (mins < 24 * 60) return `${Math.round(mins / 60)} h ago`;
+    return new Date(ts).toLocaleDateString([], { day: 'numeric', month: 'short' });
+  }
+
+  // Send you to Google's sign-in page; Google sends you back here with a short-lived key
+  function startGoogleAuth(silent) {
+    if (!state.google.clientId) { openSettings(); return; }
+    if (location.protocol === 'file:') { showToast('Open the planner from its website link to connect Google'); return; }
+    const nonce = uid() + uid();
+    lsSet(G_NONCE_KEY, nonce);
+    const params = new URLSearchParams({
+      client_id: state.google.clientId,
+      redirect_uri: redirectUri(),
+      response_type: 'token',
+      scope: G_SCOPES.join(' '),
+      include_granted_scopes: 'true',
+      state: nonce,
+    });
+    if (silent) params.set('prompt', 'none');
+    location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  }
+
+  function handleGoogleRedirect() {
+    if (!location.hash || location.hash.length < 2) return false;
+    const p = new URLSearchParams(location.hash.slice(1));
+    if (!p.has('access_token') && !p.has('error')) return false;
+    const expected = lsGet(G_NONCE_KEY);
+    lsDel(G_NONCE_KEY);
+    history.replaceState(null, '', location.pathname + location.search);
+    if (!expected || p.get('state') !== expected) {
+      showToast("Google sign-in didn't match. Please try again.");
+      return true;
+    }
+    const err = p.get('error');
+    if (err) {
+      if (['interaction_required', 'login_required', 'consent_required', 'account_selection_required'].includes(err)) {
+        startGoogleAuth(false); // quick sign-in wasn't possible, so ask properly
+      } else {
+        showToast(err === 'access_denied' ? 'Google access was not allowed' : `Google sign-in failed (${err})`);
+      }
+      return true;
+    }
+    const granted = p.get('scope') || '';
+    lsSet(G_TOKEN_KEY, JSON.stringify({
+      token: p.get('access_token'),
+      exp: Date.now() + (Number(p.get('expires_in')) || 3600) * 1000,
+    }));
+    state.google.connected = true;
+    save();
+    if (!G_SCOPES.every((s) => granted.includes(s))) {
+      showToast('Tip: tick both calendar boxes on Google\'s screen so everything works');
+    }
+    googleSync();
+    return true;
+  }
+
+  async function gApi(path, { method = 'GET', body } = {}) {
+    const token = getToken();
+    if (!token) throw Object.assign(new Error('Please sign in to Google again'), { auth: true });
+    const headers = { Authorization: `Bearer ${token}` };
+    if (body) headers['Content-Type'] = 'application/json';
+    const res = await fetch(G_API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    if (res.status === 401) {
+      lsDel(G_TOKEN_KEY);
+      throw Object.assign(new Error('Please sign in to Google again'), { auth: true });
+    }
+    if (!res.ok) {
+      let msg = `error ${res.status}`;
+      try { const j = await res.json(); if (j.error && j.error.message) msg = j.error.message; } catch (e) { /* ignore */ }
+      throw Object.assign(new Error(msg), { status: res.status });
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  function mapGEvent(ev, cal) {
+    if (!ev || ev.status === 'cancelled' || !ev.start) return null;
+    const base = {
+      id: `${cal.id}|${ev.id}`,
+      gid: ev.id,
+      primary: !!cal.primary,
+      calName: cal.primary ? 'Google Calendar' : (cal.summaryOverride || cal.summary || 'Google'),
+      color: safeHex(cal.backgroundColor),
+      title: ev.summary || '(No title)',
+      link: typeof ev.htmlLink === 'string' && ev.htmlLink.startsWith('https://') ? ev.htmlLink : '',
+    };
+    if (ev.start.date) {
+      const end = ev.end && ev.end.date ? ev.end.date : dateKey(addDays(parseKey(ev.start.date), 1));
+      return { ...base, allDay: true, start: ev.start.date, end, time: '' };
+    }
+    const s = new Date(ev.start.dateTime);
+    if (isNaN(s)) return null;
+    return { ...base, allDay: false, start: dateKey(s), end: dateKey(s), time: `${pad(s.getHours())}:${pad(s.getMinutes())}` };
+  }
+
+  async function fetchGoogleRange(from, to) {
+    const list = await gApi('/users/me/calendarList?minAccessRole=reader&maxResults=250');
+    const cals = (list.items || []).filter((c) => c.selected || c.primary);
+    const out = [];
+    for (const cal of cals) {
+      let pageToken = '';
+      do {
+        const q = new URLSearchParams({
+          timeMin: from.toISOString(), timeMax: to.toISOString(),
+          singleEvents: 'true', orderBy: 'startTime', maxResults: '2500',
+        });
+        if (pageToken) q.set('pageToken', pageToken);
+        const r = await gApi(`/calendars/${encodeURIComponent(cal.id)}/events?${q}`);
+        (r.items || []).forEach((ev) => { const m = mapGEvent(ev, cal); if (m) out.push(m); });
+        pageToken = r.nextPageToken || '';
+      } while (pageToken);
+    }
+    return out;
+  }
+
+  function gBody(ev) {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!ev.time) {
+      return { summary: ev.title, start: { date: ev.date }, end: { date: dateKey(addDays(parseKey(ev.date), 1)) } };
+    }
+    const [h, m] = ev.time.split(':').map(Number);
+    const end = parseKey(ev.date);
+    end.setHours(h + 1, m);
+    return {
+      summary: ev.title,
+      start: { dateTime: `${ev.date}T${ev.time}:00`, timeZone },
+      end: { dateTime: `${dateKey(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`, timeZone },
+    };
+  }
+
+  const waitingCount = () =>
+    state.events.filter((e) => e.gSync && (e.gDirty || !e.gId)).length + state.google.pendingDeletes.length;
+
+  // Send planner changes (new, edited, deleted events) to Google
+  async function pushPending() {
+    for (const gid of state.google.pendingDeletes.slice()) {
+      try {
+        await gApi(`/calendars/primary/events/${encodeURIComponent(gid)}`, { method: 'DELETE' });
+      } catch (e) {
+        if (e.status !== 404 && e.status !== 410) throw e; // already gone is fine
+      }
+      state.google.pendingDeletes = state.google.pendingDeletes.filter((x) => x !== gid);
+      save();
+    }
+    for (const ev of state.events) {
+      if (!ev.gSync || (!ev.gDirty && ev.gId)) continue;
+      if (ev.gId) {
+        try {
+          await gApi(`/calendars/primary/events/${encodeURIComponent(ev.gId)}`, { method: 'PATCH', body: gBody(ev) });
+        } catch (e) {
+          if (e.status !== 404 && e.status !== 410) throw e;
+          ev.gId = null; // it was deleted in Google, so make a new one
+        }
+      }
+      if (!ev.gId) {
+        const r = await gApi('/calendars/primary/events', { method: 'POST', body: gBody(ev) });
+        ev.gId = r.id;
+      }
+      ev.gDirty = false;
+      save();
+    }
+  }
+
+  function googleError(e) {
+    if (e && e.auth) showToast('Google needs you to sign in again. Tap the 🗓️ button.');
+    else showToast(`Google: ${e && e.message ? e.message : 'something went wrong'}`);
+  }
+
+  async function googlePush(quiet) {
+    if (!state.google.connected) return;
+    if (!getToken()) { renderGBar(); return; }
+    try {
+      const n = waitingCount();
+      await pushPending();
+      if (n && !quiet) showToast('Sent to Google Calendar 🗓️');
+    } catch (e) { googleError(e); }
+    render();
+  }
+
+  async function googleSync() {
+    if (syncing || !state.google.connected) return;
+    if (!getToken()) { renderGBar(); return; }
+    syncing = true;
+    renderGBar();
+    try {
+      await pushPending();
+      const from = addDays(startOfWeek(new Date()), -28);
+      const to = addDays(from, 7 * 22);
+      state.google.events = await fetchGoogleRange(from, to);
+      state.google.range = { from: dateKey(from), to: dateKey(to) };
+      state.google.lastSync = Date.now();
+      fetchedWeeks.clear();
+      save();
+    } catch (e) {
+      googleError(e);
+    } finally {
+      syncing = false;
+      render();
+      if (settingsSheet.open) renderSettings();
+    }
+  }
+
+  // Looking at a week outside what's been downloaded? Fetch just that week.
+  function maybeFetchWeek() {
+    const g = state.google;
+    if (!g.connected || !g.range || syncing || !getToken()) return;
+    const a = dateKey(weekStart);
+    const b = dateKey(addDays(weekStart, 7));
+    if ((a >= g.range.from && b <= g.range.to) || fetchedWeeks.has(a)) return;
+    fetchedWeeks.add(a);
+    const ws = new Date(weekStart);
+    fetchGoogleRange(ws, addDays(ws, 7)).then((evs) => {
+      const ids = new Set(evs.map((x) => x.id));
+      state.google.events = state.google.events.filter((x) => !ids.has(x.id) && !(x.start >= a && x.start < b)).concat(evs);
+      save();
+      if (currentView === 'week') render();
+    }).catch((e) => { fetchedWeeks.delete(a); if (!e.auth) googleError(e); });
+  }
+
+  function maybeAutoSync() {
+    if (state.google.connected && getToken() && Date.now() - state.google.lastSync > 5 * 60 * 1000) googleSync();
+  }
+
+  function renderGBar() {
+    const btn = $('#gsync');
+    const g = state.google;
+    const show = g.connected && (currentView === 'today' || currentView === 'week');
+    btn.hidden = !show;
+    if (!show) return;
+    const waiting = waitingCount();
+    let text;
+    if (syncing) text = '🗓️ Syncing with Google…';
+    else if (!getToken()) text = `🗓️ Tap to sync with Google${waiting ? ` · ${waiting} waiting to send` : ''}`;
+    else text = `🗓️ Google synced ${ago(g.lastSync)}${waiting ? ` · ${waiting} waiting` : ''} · tap to refresh`;
+    btn.textContent = text;
+    btn.disabled = syncing;
+  }
+
+  function renderSettings() {
+    const g = state.google;
+    const live = !!getToken();
+    let status;
+    if (!g.clientId) status = "Not set up yet. Follow the setup steps, then paste your Client ID below.";
+    else if (!g.connected) status = 'Ready to connect.';
+    else if (live) status = `Connected ✅ · synced ${ago(g.lastSync)}`;
+    else status = 'Connected ✅ · Google signs you out after about an hour, so tap Sync now to refresh.';
+    $('#g-status').textContent = status;
+    $('#g-client-field').hidden = g.connected;
+    $('#g-connect').hidden = g.connected;
+    $('#g-sync').hidden = !g.connected;
+    $('#g-disconnect').hidden = !g.connected;
+    $('#g-autopush-row').hidden = !g.connected;
+    $('#g-autopush').checked = g.autoPush;
+  }
+
+  function openSettings() {
+    $('#g-client').value = state.google.clientId;
+    renderSettings();
+    settingsSheet.showModal();
+  }
+
+  $('#open-settings').addEventListener('click', openSettings);
+  $('#settings-close').addEventListener('click', () => settingsSheet.close());
+  settingsSheet.addEventListener('click', (e) => { if (e.target === settingsSheet) settingsSheet.close(); });
+
+  $('#g-connect').addEventListener('click', () => {
+    const id = $('#g-client').value.trim();
+    if (!/^[\w.-]+\.apps\.googleusercontent\.com$/.test(id)) {
+      showToast('That should end in .apps.googleusercontent.com');
+      $('#g-client').focus();
+      return;
+    }
+    state.google.clientId = id;
+    save();
+    startGoogleAuth(false);
+  });
+  $('#g-sync').addEventListener('click', () => {
+    settingsSheet.close();
+    if (getToken()) googleSync(); else startGoogleAuth(true);
+  });
+  $('#g-autopush').addEventListener('change', (e) => { state.google.autoPush = e.target.checked; save(); });
+  $('#g-disconnect').addEventListener('click', () => {
+    if (!confirm('Disconnect Google Calendar? Your Google events will disappear from the planner, but they stay safe in Google.')) return;
+    const token = getToken();
+    if (token) fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, { method: 'POST' }).catch(() => {});
+    lsDel(G_TOKEN_KEY);
+    state.google = normGoogle({ clientId: state.google.clientId, autoPush: state.google.autoPush });
+    save();
+    renderSettings();
+    render();
+    showToast('Google Calendar disconnected');
+  });
+  $('#gsync').addEventListener('click', () => {
+    if (getToken()) googleSync(); else startGoogleAuth(true);
+  });
+
   // Pick up changes made in another tab
   window.addEventListener('storage', (e) => {
     if (e.key === STORE_KEY) { state = load(); render(); }
   });
 
   switchView('today');
+  if (!handleGoogleRedirect()) maybeAutoSync();
 })();

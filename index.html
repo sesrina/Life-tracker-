@@ -20,8 +20,14 @@
 <body>
   <div class="app">
     <header class="app-header">
-      <p class="eyebrow" id="screen-eyebrow"></p>
-      <h1 id="screen-title">Today</h1>
+      <div class="header-row">
+        <div>
+          <p class="eyebrow" id="screen-eyebrow"></p>
+          <h1 id="screen-title">Today</h1>
+        </div>
+        <button class="icon-btn settings-btn" type="button" id="open-settings" aria-label="Settings">⚙️</button>
+      </div>
+      <button class="gsync" type="button" id="gsync" hidden></button>
     </header>
 
     <main id="main">
@@ -189,6 +195,11 @@
         </div>
       </fieldset>
 
+      <label class="toggle-row g-toggle" id="f-gsync-row" hidden>
+        <input type="checkbox" id="f-gsync">
+        <span>🗓️ Also in Google Calendar</span>
+      </label>
+
       <div class="sheet-actions">
         <button class="btn danger" type="button" id="btn-delete">Delete</button>
         <button class="btn ghost" type="button" id="btn-cancel">Cancel</button>
@@ -231,6 +242,35 @@
         <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Settings -->
+  <dialog id="settings-sheet" class="sheet" aria-labelledby="settings-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="settings-title">Settings</h2>
+
+      <section class="settings-group">
+        <h3>🗓️ Google Calendar</h3>
+        <p class="g-status" id="g-status"></p>
+        <label class="field" id="g-client-field">
+          <span>Client ID</span>
+          <input type="text" id="g-client" placeholder="123…apps.googleusercontent.com" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false">
+        </label>
+        <div class="settings-actions">
+          <button class="btn primary" type="button" id="g-connect">Connect Google Calendar</button>
+          <button class="btn primary" type="button" id="g-sync">🔄 Sync now</button>
+          <button class="btn danger" type="button" id="g-disconnect">Disconnect</button>
+        </div>
+        <label class="toggle-row" id="g-autopush-row">
+          <input type="checkbox" id="g-autopush">
+          <span>Send new planner events to Google Calendar too</span>
+        </label>
+        <p class="tip">Your Google events show on the Today and Week screens. Tap one to open it in Google Calendar. Setup steps are in the README on GitHub.</p>
+      </section>
+
+      <button class="btn ghost wide" type="button" id="settings-close">Done</button>
+    </div>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite">
