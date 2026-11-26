@@ -5,6 +5,12 @@
   const STORE_KEY = 'cute-planner-v1';
   const COLORS = ['pink', 'lavender', 'mint', 'peach', 'sky'];
 
+  function normCycle(c) {
+    const ok = c && typeof c === 'object';
+    const days = ok && c.days && typeof c.days === 'object' && !Array.isArray(c.days) ? c.days : {};
+    return { days, showOnToday: ok ? c.showOnToday !== false : true };
+  }
+
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -13,12 +19,13 @@
         return {
           events: Array.isArray(data.events) ? data.events : [],
           todos: Array.isArray(data.todos) ? data.todos : [],
+          cycle: normCycle(data.cycle),
         };
       }
     } catch (err) {
       console.warn('Could not load saved data', err);
     }
-    return { events: [], todos: [] };
+    return { events: [], todos: [], cycle: normCycle(null) };
   }
 
   function save() {
@@ -79,6 +86,107 @@
   }
 
   const safeColor = (c) => (COLORS.includes(c) ? c : 'pink');
+  const diffDays = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 86400000);
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  /* ================= Cycle maths ================= */
+  const FLOWS = ['light', 'medium', 'heavy'];
+  const SYMPTOMS = [
+    ['cramps', '🌀 Cramps'], ['headache', '🤕 Headache'], ['bloating', '🎈 Bloating'],
+    ['tired', '😴 Tired'], ['moody', '🌧️ Moody'], ['spots', '🫧 Spots'],
+    ['tender', '💗 Tender breasts'], ['backache', '🦴 Back pain'], ['cravings', '🍫 Cravings'],
+    ['good', '🌈 Feeling good'],
+  ];
+  const isPeriodDay = (e) => !!e && FLOWS.includes(e.flow);
+  const hasLog = (e) => !!e && ((Array.isArray(e.symptoms) && e.symptoms.length > 0) || !!e.note);
+  const mean = (arr) => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+
+  function cycleStats() {
+    const days = state.cycle.days;
+    const tk = todayKey();
+    const keys = Object.keys(days).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k) && k <= tk && isPeriodDay(days[k])).sort();
+    const periods = [];
+    let cur = null;
+    for (const k of keys) {
+      if (cur && diffDays(cur.end, k) <= 2) cur.end = k; // a 1-day gap still counts as the same period
+      else { cur = { start: k, end: k }; periods.push(cur); }
+    }
+    periods.forEach((p) => { p.length = diffDays(p.start, p.end) + 1; });
+    const cycles = [];
+    for (let i = 1; i < periods.length; i++) {
+      const d = diffDays(periods[i - 1].start, periods[i].start);
+      if (d >= 15 && d <= 60) cycles.push(d); // ignore missed logs / outliers
+    }
+    return {
+      periods,
+      cycles,
+      avgCycle: cycles.length ? mean(cycles.slice(-6)) : 28,
+      avgPeriod: (() => {
+        // leave out a period that's still going, so it doesn't drag the average down
+        const ongoing = periods.length && diffDays(periods[periods.length - 1].end, tk) <= 1;
+        const done = ongoing ? periods.slice(0, -1) : periods;
+        return done.length ? Math.min(10, mean(done.slice(-6).map((p) => p.length))) : 5;
+      })(),
+      last: periods[periods.length - 1] || null,
+    };
+  }
+
+  function cyclePredictions(st, untilKey) {
+    const period = new Set();
+    const fertile = new Set();
+    const out = { period, fertile, nextStart: null, lateBy: 0 };
+    if (!st.last) return out;
+    const tk = todayKey();
+    const today = parseKey(tk);
+    let s = addDays(parseKey(st.last.start), st.avgCycle);
+    if (s < today && st.last.end < tk) {
+      out.lateBy = diffDays(dateKey(s), tk);
+      s = today;
+    }
+    out.nextStart = dateKey(s);
+    if (out.lateBy > 45) return out; // data is stale, don't guess
+    const until = parseKey(untilKey);
+    for (let i = 0; i < 24 && addDays(s, -19) <= until; i++) {
+      for (let j = 0; j < st.avgPeriod; j++) period.add(dateKey(addDays(s, j)));
+      const ovulation = addDays(s, -14);
+      for (let j = -5; j <= 1; j++) {
+        const k = dateKey(addDays(ovulation, j));
+        if (k >= tk && k > st.last.end) fertile.add(k);
+      }
+      s = addDays(s, st.avgCycle);
+    }
+    return out;
+  }
+
+  function cycleStatus(st, pred) {
+    const tk = todayKey();
+    if (!st.last) {
+      return { num: '–', label: 'Day', p: 0, short: '',
+        status: 'Start tracking 🌙',
+        sub: 'Tap “My period started” on day one, or tap days on the calendar to log past periods.' };
+    }
+    const day = diffDays(st.last.start, tk) + 1;
+    const p = Math.min(100, Math.round((day / st.avgCycle) * 100));
+    if (isPeriodDay(state.cycle.days[tk])) {
+      return { num: day, label: 'Period day', p, short: `Period day ${day}`,
+        status: 'On your period 🩸', sub: 'Be gentle with yourself today 💗' };
+    }
+    if (pred.lateBy > 45) {
+      return { num: day, label: 'Cycle day', p: 100, short: `Cycle day ${day}`,
+        status: 'Time for an update', sub: 'Log your latest period to get fresh predictions.' };
+    }
+    if (pred.lateBy > 0) {
+      return { num: day, label: 'Cycle day', p: 100, short: `Period ${plural(pred.lateBy, 'day')} late`,
+        status: `Period is ${plural(pred.lateBy, 'day')} late`,
+        sub: 'Cycles can shift with stress, travel, illness or sleep.' };
+    }
+    const until = diffDays(tk, pred.nextStart);
+    const status = until === 0 ? 'Period may start today' : `Next period in ~${plural(until, 'day')}`;
+    let sub = `Expected around ${fmtDate(pred.nextStart, { weekday: 'short', day: 'numeric', month: 'short' })}`;
+    if (pred.fertile.has(tk)) sub += ' · in your fertile window (estimate)';
+    if (!st.cycles.length) sub += '. Based on a typical 28-day cycle until you log another period.';
+    return { num: day, label: 'Cycle day', p, short: `Cycle day ${day} · ${status.charAt(0).toLowerCase()}${status.slice(1)}`, status, sub };
+  }
 
   /* ================= Item templates ================= */
   function eventHTML(ev) {
@@ -115,7 +223,8 @@
   let weekStart = startOfWeek(new Date());
   let todoFilter = 'active';
 
-  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders' };
+  const TITLES = { today: 'Today', week: 'This week', todos: 'To-dos & reminders', cycle: 'My cycle' };
+  let monthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   function renderHeader() {
     const now = new Date();
@@ -161,6 +270,88 @@
     $('#today-todos').innerHTML = todos.length
       ? todos.map(todoHTML).join('')
       : emptyHTML('All clear! Add a to-do to get started 🌱');
+
+    const mini = $('#today-cycle');
+    const st = cycleStats();
+    if (state.cycle.showOnToday && st.last) {
+      const info = cycleStatus(st, cyclePredictions(st, todayKey()));
+      mini.textContent = `🌙 ${info.short}`;
+      mini.hidden = false;
+    } else {
+      mini.hidden = true;
+    }
+  }
+
+  function renderCycle() {
+    const tk = todayKey();
+    const days = state.cycle.days;
+    const st = cycleStats();
+    const first = monthCursor;
+    const gridStart = startOfWeek(first);
+    const lastOfMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+    const gridEnd = addDays(startOfWeek(lastOfMonth), 6);
+    const pred = cyclePredictions(st, dateKey(gridEnd));
+    const info = cycleStatus(st, pred);
+
+    $('#cycle-ring').style.setProperty('--p', info.p);
+    $('#cycle-ring-label').textContent = info.label;
+    $('#cycle-ring-num').textContent = info.num;
+    $('#cycle-status').textContent = info.status;
+    $('#cycle-sub').textContent = info.sub;
+
+    // Quick buttons
+    const todayEntry = days[tk];
+    const yesterdayEntry = days[dateKey(addDays(new Date(), -1))];
+    const quick = $('#cycle-quick');
+    if (isPeriodDay(todayEntry)) { quick.textContent = '✏️ Edit today'; quick.dataset.mode = 'edit'; }
+    else if (isPeriodDay(yesterdayEntry)) { quick.textContent = '🩸 Still on my period'; quick.dataset.mode = 'log'; }
+    else { quick.textContent = '🩸 My period started'; quick.dataset.mode = 'log'; }
+    $('#cycle-feel').hidden = isPeriodDay(todayEntry);
+
+    // Month calendar
+    $('#month-label').textContent = first.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    const now = new Date();
+    $('#month-today').hidden = first.getFullYear() === now.getFullYear() && first.getMonth() === now.getMonth();
+    let html = '';
+    for (let i = 0; i < 7; i++) {
+      html += `<div class="cal-dow" aria-hidden="true">${esc(addDays(gridStart, i).toLocaleDateString([], { weekday: 'narrow' }))}</div>`;
+    }
+    for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) {
+      const key = dateKey(d);
+      const e = days[key];
+      const cls = ['cal-day'];
+      const notes = [];
+      if (d.getMonth() !== first.getMonth()) cls.push('out');
+      if (key === tk) { cls.push('today'); notes.push('today'); }
+      if (isPeriodDay(e)) { cls.push('period'); notes.push(`period, ${e.flow} flow`); }
+      else if (e && e.flow === 'spotting') { cls.push('spotting'); notes.push('spotting'); }
+      else if (pred.period.has(key)) { cls.push('predicted'); notes.push('predicted period'); }
+      else if (pred.fertile.has(key)) { cls.push('fertile'); notes.push('fertile window estimate'); }
+      if (hasLog(e)) { cls.push('has-log'); notes.push('has notes'); }
+      const label = d.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }) + (notes.length ? ' — ' + notes.join(', ') : '');
+      html += `<button type="button" class="${cls.join(' ')}" data-day="${key}" aria-label="${esc(label)}">${d.getDate()}</button>`;
+    }
+    $('#cal').innerHTML = html;
+
+    // Stats
+    $('#stat-cycle').textContent = st.cycles.length ? `${st.avgCycle}d` : '–';
+    $('#stat-period').textContent = st.periods.length ? `${st.avgPeriod}d` : '–';
+    $('#stat-count').textContent = st.periods.length;
+
+    // History
+    const hist = st.periods.slice().reverse().slice(0, 12).map((p, idx, arr) => {
+      const range = p.start === p.end
+        ? fmtDate(p.start, { day: 'numeric', month: 'short' })
+        : `${fmtDate(p.start, { day: 'numeric', month: 'short' })} – ${fmtDate(p.end, { day: 'numeric', month: 'short' })}`;
+      const year = p.start.slice(0, 4) !== tk.slice(0, 4) ? ` ${p.start.slice(0, 4)}` : '';
+      let meta = plural(p.length, 'day');
+      if (idx === 0) meta += ` · current cycle, day ${diffDays(p.start, tk) + 1}`;
+      else meta += ` · ${diffDays(p.start, arr[idx - 1].start)}-day cycle`;
+      return `<li class="item"><button class="item-main" type="button" data-day="${p.start}">
+        <span class="item-title">🩸 ${esc(range + year)}</span><span class="item-meta">${esc(meta)}</span></button></li>`;
+    });
+    $('#period-history').innerHTML = hist.length ? hist.join('') : emptyHTML('Your periods will show up here 🌸');
+    $('#cycle-show-today').checked = state.cycle.showOnToday;
   }
 
   function renderWeek() {
@@ -224,6 +415,7 @@
     if (currentView === 'today') renderToday();
     if (currentView === 'week') renderWeek();
     if (currentView === 'todos') renderTodos();
+    if (currentView === 'cycle') renderCycle();
     renderHeader();
   }
 
@@ -402,6 +594,9 @@
 
   // One listener handles taps on every list item and "+" button
   $('#main').addEventListener('click', (e) => {
+    const dayBtn = e.target.closest('[data-day]');
+    if (dayBtn) { openDaySheet(dayBtn.dataset.day); return; }
+    if (e.target.closest('#today-cycle')) { switchView('cycle'); return; }
     const addBtn = e.target.closest('[data-add]');
     if (addBtn) {
       const date = addBtn.dataset.date === 'today' ? todayKey() : addBtn.dataset.date;
@@ -469,7 +664,7 @@
   // Keep "Today" fresh when you come back to the app (e.g. the next morning)
   let lastDay = todayKey();
   function refreshIfNeeded() {
-    if (sheet.open) return;
+    if (sheet.open || daySheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -478,6 +673,81 @@
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshIfNeeded(); });
   setInterval(refreshIfNeeded, 60 * 1000);
+
+  /* ================= Cycle wiring ================= */
+  const daySheet = $('#day-sheet');
+  let editingDay = null;
+
+  $('#symptom-group').innerHTML = SYMPTOMS.map(([id, label]) =>
+    `<label class="pill"><input type="checkbox" name="symptom" value="${id}"><span>${label}</span></label>`).join('');
+
+  function openDaySheet(key) {
+    editingDay = key;
+    const e = state.cycle.days[key] || {};
+    const rel = relDay(key);
+    const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
+    $('#day-title').textContent = ['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? `${rel} · ${long}` : long;
+    $$('input[name="flow"]').forEach((r) => { r.checked = r.value === (e.flow || ''); });
+    const syms = Array.isArray(e.symptoms) ? e.symptoms : [];
+    $$('input[name="symptom"]').forEach((c) => { c.checked = syms.includes(c.value); });
+    $('#day-note').value = e.note || '';
+    $('#day-clear').hidden = !state.cycle.days[key];
+    daySheet.showModal();
+  }
+
+  function closeDaySheet() {
+    if (daySheet.open) daySheet.close();
+    editingDay = null;
+  }
+
+  $('#day-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!editingDay) return;
+    const flow = ($('input[name="flow"]:checked') || {}).value || '';
+    const symptoms = $$('input[name="symptom"]:checked').map((c) => c.value);
+    const note = $('#day-note').value.trim();
+    if (flow || symptoms.length || note) state.cycle.days[editingDay] = { flow, symptoms, note };
+    else delete state.cycle.days[editingDay];
+    save();
+    closeDaySheet();
+    render();
+    showToast('Saved 🌙');
+  });
+  $('#day-cancel').addEventListener('click', closeDaySheet);
+  $('#day-clear').addEventListener('click', () => {
+    if (editingDay) delete state.cycle.days[editingDay];
+    save();
+    closeDaySheet();
+    render();
+    showToast('Day cleared');
+  });
+  daySheet.addEventListener('click', (e) => { if (e.target === daySheet) closeDaySheet(); });
+  daySheet.addEventListener('close', () => { editingDay = null; });
+
+  $('#cycle-quick').addEventListener('click', (e) => {
+    const tk = todayKey();
+    if (e.currentTarget.dataset.mode === 'edit') { openDaySheet(tk); return; }
+    const prev = state.cycle.days[dateKey(addDays(new Date(), -1))];
+    const existing = state.cycle.days[tk] || { symptoms: [], note: '' };
+    state.cycle.days[tk] = { ...existing, flow: isPeriodDay(prev) ? prev.flow : 'medium' };
+    save();
+    render();
+    showToast('Logged for today 🩸');
+  });
+  $('#cycle-feel').addEventListener('click', () => openDaySheet(todayKey()));
+  $('#cycle-show-today').addEventListener('change', (e) => {
+    state.cycle.showOnToday = e.target.checked;
+    save();
+  });
+  $('#month-prev').addEventListener('click', () => {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1); render();
+  });
+  $('#month-next').addEventListener('click', () => {
+    monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1); render();
+  });
+  $('#month-today').addEventListener('click', () => {
+    const n = new Date(); monthCursor = new Date(n.getFullYear(), n.getMonth(), 1); render();
+  });
 
   // Pick up changes made in another tab
   window.addEventListener('storage', (e) => {

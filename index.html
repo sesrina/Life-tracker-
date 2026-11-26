@@ -32,6 +32,7 @@
           <p class="hello-sub" id="today-summary"></p>
           <div class="progress" aria-hidden="true"><div class="progress-bar" id="today-progress"></div></div>
         </div>
+        <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
 
         <div class="section-head">
           <h2>🗓️ Events</h2>
@@ -76,6 +77,57 @@
         <ul class="list" id="todo-list"></ul>
         <button class="btn ghost wide" type="button" id="clear-done" hidden>Clear finished to-dos</button>
       </section>
+
+      <!-- CYCLE -->
+      <section id="view-cycle" class="view" aria-labelledby="screen-title">
+        <div class="cycle-card">
+          <div class="cycle-ring" id="cycle-ring" aria-hidden="true">
+            <span class="ring-label" id="cycle-ring-label">Day</span>
+            <span class="ring-num" id="cycle-ring-num">–</span>
+          </div>
+          <div class="cycle-text">
+            <p class="cycle-status" id="cycle-status"></p>
+            <p class="cycle-sub" id="cycle-sub"></p>
+          </div>
+        </div>
+
+        <div class="cycle-actions">
+          <button class="btn primary" type="button" id="cycle-quick">🩸 My period started</button>
+          <button class="btn ghost" type="button" id="cycle-feel">📝 How I feel</button>
+        </div>
+
+        <div class="week-nav month-nav">
+          <button class="icon-btn" type="button" id="month-prev" aria-label="Previous month">‹</button>
+          <div class="week-label">
+            <span id="month-label"></span>
+            <button class="link-btn" type="button" id="month-today">Back to this month</button>
+          </div>
+          <button class="icon-btn" type="button" id="month-next" aria-label="Next month">›</button>
+        </div>
+        <div class="cal" id="cal"></div>
+        <div class="legend" aria-hidden="true">
+          <span><i class="lg-period"></i>Period</span>
+          <span><i class="lg-predicted"></i>Predicted</span>
+          <span><i class="lg-fertile"></i>Fertile (estimate)</span>
+          <span><i class="lg-log"></i>Notes</span>
+        </div>
+        <p class="tip">Tap any day to log flow, symptoms or a note.</p>
+
+        <div class="stats">
+          <div class="stat"><b id="stat-cycle">–</b><span>Avg cycle</span></div>
+          <div class="stat"><b id="stat-period">–</b><span>Avg period</span></div>
+          <div class="stat"><b id="stat-count">0</b><span>Periods logged</span></div>
+        </div>
+
+        <div class="section-head"><h2>🌙 Past periods</h2></div>
+        <ul class="list" id="period-history"></ul>
+
+        <label class="toggle-row">
+          <input type="checkbox" id="cycle-show-today">
+          <span>Show my cycle on the Today screen</span>
+        </label>
+        <p class="tip">🔒 Cycle data is saved only on this device. Predictions are estimates based on your past cycles. Don't rely on them for contraception.</p>
+      </section>
     </main>
   </div>
 
@@ -83,6 +135,7 @@
     <button class="tab is-active" type="button" data-view="today"><span class="tab-icon">🌼</span><span>Today</span></button>
     <button class="tab" type="button" data-view="week"><span class="tab-icon">🗓️</span><span>Week</span></button>
     <button class="tab" type="button" data-view="todos"><span class="tab-icon">✅</span><span>To-do</span></button>
+    <button class="tab" type="button" data-view="cycle"><span class="tab-icon">🌙</span><span>Cycle</span></button>
   </nav>
 
   <!-- Add / edit sheet -->
@@ -124,6 +177,41 @@
       <div class="sheet-actions">
         <button class="btn danger" type="button" id="btn-delete">Delete</button>
         <button class="btn ghost" type="button" id="btn-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Cycle day sheet -->
+  <dialog id="day-sheet" class="sheet" aria-labelledby="day-title">
+    <form id="day-form" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="day-title">Today</h2>
+
+      <fieldset class="field">
+        <legend>Period flow</legend>
+        <div class="pill-group">
+          <label class="pill"><input type="radio" name="flow" value="" checked><span>None</span></label>
+          <label class="pill"><input type="radio" name="flow" value="spotting"><span>Spotting</span></label>
+          <label class="pill"><input type="radio" name="flow" value="light"><span>💧 Light</span></label>
+          <label class="pill"><input type="radio" name="flow" value="medium"><span>💧💧 Medium</span></label>
+          <label class="pill"><input type="radio" name="flow" value="heavy"><span>💧💧💧 Heavy</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="field">
+        <legend>How are you feeling?</legend>
+        <div class="pill-group" id="symptom-group"></div>
+      </fieldset>
+
+      <label class="field">
+        <span>Note</span>
+        <input type="text" id="day-note" maxlength="200" placeholder="Anything to remember?">
+      </label>
+
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="day-clear">Clear</button>
+        <button class="btn ghost" type="button" id="day-cancel">Cancel</button>
         <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
