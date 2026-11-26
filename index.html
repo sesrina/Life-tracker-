@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fde8ef">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Planner">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>My Planner</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <p class="eyebrow" id="screen-eyebrow"></p>
+      <h1 id="screen-title">Today</h1>
+    </header>
+
+    <main id="main">
+      <!-- TODAY -->
+      <section id="view-today" class="view is-active" aria-labelledby="screen-title">
+        <div class="hello-card">
+          <p class="hello" id="today-greeting">Hello!</p>
+          <p class="hello-sub" id="today-summary"></p>
+          <div class="progress" aria-hidden="true"><div class="progress-bar" id="today-progress"></div></div>
+        </div>
+
+        <div class="section-head">
+          <h2>🗓️ Events</h2>
+          <button class="btn-add" type="button" data-add="event" data-date="today">+ Event</button>
+        </div>
+        <ul class="list" id="today-events"></ul>
+
+        <div class="section-head">
+          <h2>🌷 To-dos</h2>
+          <button class="btn-add" type="button" data-add="todo" data-date="today">+ To-do</button>
+        </div>
+        <ul class="list" id="today-todos"></ul>
+      </section>
+
+      <!-- WEEK -->
+      <section id="view-week" class="view" aria-labelledby="screen-title">
+        <div class="week-nav">
+          <button class="icon-btn" type="button" id="week-prev" aria-label="Previous week">‹</button>
+          <div class="week-label">
+            <span id="week-range"></span>
+            <button class="link-btn" type="button" id="week-today">Jump to this week</button>
+          </div>
+          <button class="icon-btn" type="button" id="week-next" aria-label="Next week">›</button>
+        </div>
+        <div id="week-days"></div>
+      </section>
+
+      <!-- TO-DOS -->
+      <section id="view-todos" class="view" aria-labelledby="screen-title">
+        <form class="quick-add" id="quick-add" autocomplete="off">
+          <input type="text" id="quick-title" placeholder="Add a to-do or reminder…" maxlength="120" aria-label="New to-do">
+          <button class="btn primary" type="submit">Add</button>
+        </form>
+        <p class="tip">Tap a to-do to give it a date and time ⏰</p>
+
+        <div class="chips" role="tablist" aria-label="Filter to-dos">
+          <button class="chip is-active" type="button" data-filter="active">To do <span id="count-active"></span></button>
+          <button class="chip" type="button" data-filter="done">Done <span id="count-done"></span></button>
+          <button class="chip" type="button" data-filter="all">All</button>
+        </div>
+
+        <ul class="list" id="todo-list"></ul>
+        <button class="btn ghost wide" type="button" id="clear-done" hidden>Clear finished to-dos</button>
+      </section>
+    </main>
+  </div>
+
+  <nav class="tabbar" aria-label="Screens">
+    <button class="tab is-active" type="button" data-view="today"><span class="tab-icon">🌼</span><span>Today</span></button>
+    <button class="tab" type="button" data-view="week"><span class="tab-icon">🗓️</span><span>Week</span></button>
+    <button class="tab" type="button" data-view="todos"><span class="tab-icon">✅</span><span>To-do</span></button>
+  </nav>
+
+  <!-- Add / edit sheet -->
+  <dialog id="sheet" class="sheet" aria-labelledby="sheet-title">
+    <form id="sheet-form" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="sheet-title">New event</h2>
+
+      <label class="field">
+        <span>Title</span>
+        <input type="text" id="f-title" maxlength="120" placeholder="What's happening?">
+      </label>
+      <p class="field-error" id="f-error" hidden></p>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Date</span>
+          <input type="date" id="f-date">
+        </label>
+        <label class="field">
+          <span>Time</span>
+          <input type="time" id="f-time">
+        </label>
+      </div>
+      <button class="link-btn" type="button" id="f-clear-when">Remove date &amp; time</button>
+      <p class="hint" id="f-hint"></p>
+
+      <fieldset class="field colors" id="f-colors">
+        <legend>Colour</legend>
+        <div class="swatches">
+          <label class="swatch c-pink"><input type="radio" name="color" value="pink" checked><span>Pink</span></label>
+          <label class="swatch c-lavender"><input type="radio" name="color" value="lavender"><span>Lavender</span></label>
+          <label class="swatch c-mint"><input type="radio" name="color" value="mint"><span>Mint</span></label>
+          <label class="swatch c-peach"><input type="radio" name="color" value="peach"><span>Peach</span></label>
+          <label class="swatch c-sky"><input type="radio" name="color" value="sky"><span>Sky</span></label>
+        </div>
+      </fieldset>
+
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="btn-delete">Delete</button>
+        <button class="btn ghost" type="button" id="btn-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <span id="toast-msg"></span>
+    <button type="button" id="toast-undo" hidden>Undo</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
