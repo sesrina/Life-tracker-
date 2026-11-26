@@ -23,6 +23,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Plant buddy**: grows as you tick things off, from seedling to secret garden, and never dies
 - **Learn as you go**: 💡 buttons explain the science behind each feature, plus a daily 🧠 Brain snack fact
 - **Easy to use**: a friendly welcome tour on first open (replay it in ⚙️), one big ➕ button to add anything, and 5 simple tabs (Journal and Cycle live together in 💜 Me)
+- **Easy to read**: no all-caps labels, 1.5 line spacing, a soft off-white background, plus ⚙️ → Reading comfort for bigger text, extra letter spacing, a choice of clear fonts (Nunito, Verdana, Atkinson Hyperlegible) and 🔊 read-aloud on tips
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

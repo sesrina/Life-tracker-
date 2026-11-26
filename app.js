@@ -80,6 +80,11 @@
         salt: typeof lock.salt === 'string' ? lock.salt : '',
       },
       backup: { last: typeof backup.last === 'number' ? backup.last : 0 },
+      reading: {
+        size: d.reading && ['m', 'l', 'xl'].includes(d.reading.size) ? d.reading.size : 'm',
+        font: d.reading && ['nunito', 'verdana', 'atkinson'].includes(d.reading.font) ? d.reading.font : 'nunito',
+        spacing: !!(d.reading && d.reading.spacing),
+      },
       profile: {
         name: d.profile && typeof d.profile.name === 'string' ? d.profile.name.slice(0, 30) : '',
         toured: !!(d.profile && d.profile.toured),
@@ -1221,8 +1226,8 @@
   });
 
   /* ================= ADHD helpers: rewards, up next, focus, brain dump ================= */
-  const CHEERS = ['Nice one! 🎉', 'Boom, done! 💥', 'Look at you go ✨', 'One less thing to think about 🧠',
-    "You're on a roll 🔥", 'Yesss! 🙌', 'Proud of you 💖', 'Smashed it 💪'];
+  const CHEERS = ['Nice work ✨', 'Done ✓', 'One less thing on your mind', 'That\'s progress 💪',
+    'Well done', 'Ticked off ✓', 'Good going ✨', 'Sorted'];
   let showAllToday = false;
 
   function celebrate(big) {
@@ -1329,7 +1334,7 @@
     $('#focus-finished').hidden = !finished;
     if (finished) {
       $('#focus-count').textContent = '';
-      $('#focus-finished-msg').textContent = focusKind === 'routine' ? 'Routine complete. Go you! 💖' : "That's everything for today. Go you! 💖";
+      $('#focus-finished-msg').textContent = focusKind === 'routine' ? 'Routine complete. Nice work.' : "That's everything for today. Nice work.";
       stopTimer();
       celebrate(true);
       return;
@@ -1449,6 +1454,11 @@
 
   /* ================= Learn: "Why?" explanations & daily brain snacks ================= */
   const WHY = {
+    reading: {
+      t: '👓 Why these reading options?',
+      b: 'Bigger text and extra space between letters make words easier to pick out. In one study, extra-wide letter spacing doubled reading accuracy for children with dyslexia. Plain fonts without serifs or slanting are read more easily than fancy ones. Special "dyslexia fonts" like OpenDyslexic didn\'t beat regular fonts in studies, so here you get clear, proven fonts instead. Everyone is different, so try them and keep what feels easiest.',
+      s: 'Zorzi et al., 2012 (PNAS); Rello & Baeza-Yates, 2013; Wery & Diliberto, 2017; British Dyslexia Association style guide',
+    },
     upnext: {
       t: '⏰ Why a countdown?',
       b: 'ADHD can make it hard to feel time passing (often called "time blindness"). Seeing "in 25 min" turns time into something you can see, so you get caught out less. Clinical guides recommend timers, countdowns and alarms for exactly this reason.',
@@ -1535,6 +1545,7 @@
     const dayNo = Math.floor(parseKey(todayKey()).getTime() / 86400000);
     const [fact, source] = SNACKS[(((dayNo + snackOffset) % SNACKS.length) + SNACKS.length) % SNACKS.length];
     $('#snack-card').innerHTML = `<div class="snack-head"><span class="snack-label">🧠 Brain snack</span>
+      <button class="link-btn speak-btn" type="button" data-speak-snack aria-label="Read aloud">🔊</button>
       <button class="link-btn" type="button" id="snack-next">Another one ➡️</button></div>
       <p class="snack-fact">${esc(fact)}</p><p class="snack-source">📚 ${esc(source)}</p>`;
   }
@@ -1788,7 +1799,7 @@
     save();
     weeklySheet.close();
     render();
-    showToast('Your week is set! ✨ Fresh start energy');
+    showToast('Your week is set ✨');
     celebrate(true);
   });
 
@@ -1840,11 +1851,11 @@
 
   /* ================= Friendly: welcome tour & one add button ================= */
   const TOUR = [
-    { e: '👋', t: 'Hi! Welcome to your planner', x: 'Everything for your day in one cute place. It\'s all saved on this phone only, so it\'s private.', name: true },
-    { e: '🌼', t: 'Today is home', x: 'See what\'s next, your routine and your to-dos. Tick things off for confetti, and to help Pip the plant grow 🌱' },
-    { e: '➕', t: 'One button adds anything', x: 'Tap the big pink + at the bottom right to add a to-do, an event, a journal entry, a goal, or empty your brain.' },
-    { e: '🎯', t: 'Plan your week and your goals', x: 'Week shows your next 7 days. Goals is for big dreams, broken into small, easy steps.' },
-    { e: '💜', t: '"Me" is just for you', x: 'Your journal and cycle live in Me. Lock them with a PIN in ⚙️ Settings. And tap any 💡 to learn why things work!' },
+    { e: '👋', t: 'Welcome to your planner', x: 'Your day, goals, journal and cycle in one place. Everything is saved privately on this phone.', name: true },
+    { e: '🌼', t: 'Today', x: 'See what\'s next, your routine and your to-dos. Tick things off to grow your plant.' },
+    { e: '➕', t: 'Add anything with +', x: 'The pink + button at the bottom right adds a to-do, an event, a journal entry or a goal. Or use Brain dump to get everything out of your head at once.' },
+    { e: '🎯', t: 'Plan ahead', x: 'Week shows the next 7 days. Goals breaks bigger plans into small steps.' },
+    { e: '💜', t: 'Me', x: 'Your journal and cycle. You can lock them with a PIN in ⚙️ Settings, and make text bigger or easier to read there too. Tap 💡 to see why a feature helps.' },
   ];
   const tourEl = $('#tour');
   let tourStep = 0;
@@ -1856,7 +1867,7 @@
     $('#tour-name-field').hidden = !s.name;
     $('#tour-count').textContent = `${tourStep + 1} of ${TOUR.length}`;
     $('#tour-dots').innerHTML = TOUR.map((_, i) => `<span class="${i === tourStep ? 'on' : ''}"></span>`).join('');
-    $('#tour-next').textContent = tourStep === TOUR.length - 1 ? "Let's go! 🚀" : 'Next ➡️';
+    $('#tour-next').textContent = tourStep === TOUR.length - 1 ? 'Get started' : 'Next';
   }
   function openTour() {
     tourStep = 0;
@@ -1876,7 +1887,7 @@
     if (tourStep < TOUR.length - 1) { tourStep++; renderTour(); return; }
     finishTour();
     celebrate(true);
-    showToast(state.profile.name ? `Let's do this, ${state.profile.name}! 💖` : "Let's do this! 💖");
+    showToast(state.profile.name ? `You're all set, ${state.profile.name} ✨` : "You're all set ✨");
   });
   $('#tour-skip').addEventListener('click', finishTour);
   tourEl.addEventListener('cancel', (e) => { e.preventDefault(); finishTour(); });
@@ -1911,6 +1922,47 @@
     else if (what === 'goal') { switchView('goals'); openGoal(null); }
     else if (what === 'period') logPeriodToday();
   });
+
+  /* ================= Reading comfort & read aloud ================= */
+  function applyReading() {
+    const r = state.reading;
+    const root = document.documentElement;
+    // Bigger text: every font size in the stylesheet is multiplied by --fs
+    root.style.setProperty('--fs', String({ m: 1, l: 1.12, xl: 1.25 }[r.size] || 1));
+    root.classList.toggle('ts-l', r.size === 'l');
+    root.classList.toggle('ts-xl', r.size === 'xl');
+    root.classList.toggle('spacious', r.spacing);
+    root.classList.toggle('font-verdana', r.font === 'verdana');
+    root.classList.toggle('font-atkinson', r.font === 'atkinson');
+    if (r.font === 'atkinson' && !document.getElementById('font-atkinson')) {
+      const l = document.createElement('link');
+      l.id = 'font-atkinson';
+      l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap';
+      document.head.appendChild(l);
+    }
+    $$('#reading-size [data-size]').forEach((b) => b.classList.toggle('is-active', b.dataset.size === r.size));
+    $$('#reading-font [data-font]').forEach((b) => b.classList.toggle('is-active', b.dataset.font === r.font));
+    $('#reading-spacing').checked = r.spacing;
+  }
+  $('#reading-size').addEventListener('click', (e) => { const b = e.target.closest('[data-size]'); if (!b) return; state.reading.size = b.dataset.size; save(); applyReading(); });
+  $('#reading-font').addEventListener('click', (e) => { const b = e.target.closest('[data-font]'); if (!b) return; state.reading.font = b.dataset.font; save(); applyReading(); });
+  $('#reading-spacing').addEventListener('change', (e) => { state.reading.spacing = e.target.checked; save(); applyReading(); });
+  applyReading();
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) { showToast('Read aloud isn\'t available on this browser'); return; }
+    speechSynthesis.cancel();
+    const clean = String(text).replace(/\p{Extended_Pictographic}|️/gu, '').replace(/\s+/g, ' ').trim();
+    const u = new SpeechSynthesisUtterance(clean);
+    u.rate = 0.95;
+    speechSynthesis.speak(u);
+  }
+  $('#why-speak').addEventListener('click', () => speak(`${$('#why-title').textContent}. ${$('#why-body').textContent}`));
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-speak-snack]')) speak($('.snack-fact') ? $('.snack-fact').textContent : '');
+  });
+  $('#why-sheet').addEventListener('close', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };

@@ -388,7 +388,7 @@
       <div id="focus-finished" hidden>
         <div class="big-emoji">🎉</div>
         <h2 class="focus-title">All done!</h2>
-        <p class="focus-meta" id="focus-finished-msg">That's everything. Go you! 💖</p>
+        <p class="focus-meta" id="focus-finished-msg">That's everything done. Nice work.</p>
         <button class="btn primary wide" type="button" id="focus-finish-close">Back to Today</button>
       </div>
     </div>
@@ -418,7 +418,8 @@
       <h2 id="why-title"></h2>
       <p class="why-body" id="why-body"></p>
       <p class="why-source" id="why-source"></p>
-      <button class="btn primary wide" type="button" id="why-close">Got it 💡</button>
+      <button class="btn ghost wide" type="button" id="why-speak">🔊 Read aloud</button>
+      <button class="btn primary wide" type="button" id="why-close">Got it</button>
     </div>
   </dialog>
 
@@ -624,6 +625,26 @@
           <input type="text" id="profile-name" maxlength="30" autocomplete="given-name">
         </label>
         <button class="btn ghost wide" type="button" id="tour-again">👋 Show me around again</button>
+      </section>
+
+      <section class="settings-group">
+        <h3>👓 Reading comfort <button class="why-btn" type="button" data-why="reading" aria-label="Why this helps">💡</button></h3>
+        <p class="g-status">Text size</p>
+        <div class="reading-row" id="reading-size">
+          <button class="chip" type="button" data-size="m">Standard</button>
+          <button class="chip" type="button" data-size="l">Large</button>
+          <button class="chip" type="button" data-size="xl">Extra large</button>
+        </div>
+        <p class="g-status">Font</p>
+        <div class="reading-row" id="reading-font">
+          <button class="chip" type="button" data-font="nunito">Nunito</button>
+          <button class="chip" type="button" data-font="verdana" style="font-family: Verdana, sans-serif">Verdana</button>
+          <button class="chip" type="button" data-font="atkinson">Atkinson Hyperlegible</button>
+        </div>
+        <label class="toggle-row">
+          <input type="checkbox" id="reading-spacing">
+          <span>Extra space between letters and words</span>
+        </label>
       </section>
 
       <section class="settings-group">
