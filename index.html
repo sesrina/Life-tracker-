@@ -51,6 +51,7 @@
               <button class="link-btn" type="button" id="routine-edit">Edit</button>
             </div>
           </div>
+          <p class="routine-meta" id="routine-meta"></p>
           <ul class="routine-list" id="routine-list"></ul>
         </section>
         <button class="btn primary wide journal-prompt" type="button" id="today-journal" hidden>📓 How did today go?</button>
@@ -255,6 +256,16 @@
       <button class="link-btn" type="button" id="f-clear-when">Remove date &amp; time</button>
       <p class="hint" id="f-hint"></p>
 
+      <label class="field" id="f-repeat-field">
+        <span>Repeats</span>
+        <select id="f-repeat">
+          <option value="">Doesn't repeat</option>
+          <option value="daily">Every day</option>
+          <option value="weekdays">Weekdays (Mon–Fri)</option>
+          <option value="weekly">Every week</option>
+        </select>
+      </label>
+
       <fieldset class="field colors" id="f-colors">
         <legend>Colour</legend>
         <div class="swatches">
@@ -384,15 +395,28 @@
     <form id="routine-form" class="sheet-body" novalidate>
       <div class="sheet-handle" aria-hidden="true"></div>
       <h2 id="routine-sheet-title">My routines</h2>
-      <p class="hint">One step per line. Keep it short, 3 to 5 small steps is plenty 🌱</p>
+      <p class="hint">One step per line. Keep it short, 3 to 5 small steps is plenty 🌱 Tying a routine to something you already do (its trigger) makes it much more likely to stick.</p>
       <label class="field">
-        <span>☀️ Morning (shows until midday)</span>
+        <span>☀️ Morning starts…</span>
+        <input type="text" id="routine-anchor-m" maxlength="60" placeholder="After I turn off my alarm">
+      </label>
+      <label class="field">
+        <span>☀️ Morning steps (shows until midday)</span>
         <textarea id="routine-morning" rows="5"></textarea>
       </label>
       <label class="field">
-        <span>🌙 Night (shows from 8 pm)</span>
+        <span>🌙 Night starts…</span>
+        <input type="text" id="routine-anchor-n" maxlength="60" placeholder="When my wind-down reminder goes off">
+      </label>
+      <label class="field">
+        <span>🌙 Night steps (shows from 8 pm)</span>
         <textarea id="routine-night" rows="5"></textarea>
       </label>
+      <label class="field">
+        <span>🛏️ Lights-out time</span>
+        <input type="time" id="routine-bed">
+      </label>
+      <p class="hint">Going to bed at about the same time every night, weekends too, is one of the best things you can do for your sleep.</p>
       <div class="sheet-actions">
         <button class="btn ghost" type="button" id="routine-cancel">Cancel</button>
         <button class="btn primary" type="submit">Save</button>

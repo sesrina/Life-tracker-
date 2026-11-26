@@ -18,6 +18,9 @@
       morning: list(ok && r.morning, DEFAULT_ROUTINE.morning),
       night: list(ok && r.night, DEFAULT_ROUTINE.night),
       done: ok && r.done && typeof r.done === 'object' && !Array.isArray(r.done) ? r.done : {},
+      anchorM: ok && typeof r.anchorM === 'string' ? r.anchorM : 'After I turn off my alarm',
+      anchorN: ok && typeof r.anchorN === 'string' ? r.anchorN : 'When my wind-down reminder goes off',
+      bed: ok && typeof r.bed === 'string' && /^\d\d:\d\d$/.test(r.bed) ? r.bed : '22:30',
     };
   }
 
@@ -306,9 +309,21 @@
       <button class="item-main" type="button" data-action="edit" aria-label="Edit event ${esc(ev.title)}">
         <span class="time-pill">${ev.time ? esc(fmtTime(ev.time)) : 'All day'}</span>
         <span class="item-title">${esc(ev.title)}</span>
+        ${ev.repeat && REPEATS[ev.repeat] ? `<span class="repeat-badge" title="${REPEATS[ev.repeat]}" aria-label="Repeats: ${REPEATS[ev.repeat]}">🔁</span>` : ''}
         ${ev.gSync && state.google.connected ? '<span class="g-badge" title="Also in Google Calendar">🗓️</span>' : ''}
       </button>
     </li>`;
+  }
+
+  // Repeating events: '' (once), 'daily', 'weekdays' or 'weekly'
+  const REPEATS = { daily: 'Every day', weekdays: 'Weekdays', weekly: 'Every week' };
+  function occursOn(ev, key) {
+    if (!ev.repeat || !REPEATS[ev.repeat]) return ev.date === key;
+    if (key < ev.date) return false;
+    if (ev.repeat === 'daily') return true;
+    const dow = parseKey(key).getDay();
+    if (ev.repeat === 'weekdays') return dow >= 1 && dow <= 5;
+    return dow === parseKey(ev.date).getDay();
   }
 
   const safeHex = (c) => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#7fc4ec');
@@ -328,14 +343,14 @@
     if (!state.google.connected) return [];
     const mine = new Set(state.events.map((e) => e.gId).filter(Boolean));
     return state.google.events.filter((g) => {
-      if (g.primary && mine.has(g.gid)) return false;
+      if (g.primary && (mine.has(g.gid) || (g.series && mine.has(g.series)))) return false;
       return g.allDay ? g.start <= key && key < g.end : g.start === key;
     });
   }
 
   // Planner + Google events for a day, sorted by time
   function dayEvents(key) {
-    const mine = state.events.filter((e) => e.date === key).map((e) => ({ time: e.time || '', title: e.title, html: eventHTML(e) }));
+    const mine = state.events.filter((e) => occursOn(e, key)).map((e) => ({ time: e.time || '', title: e.title, html: eventHTML(e) }));
     const theirs = gEventsOn(key).map((g) => ({ time: g.allDay ? '' : g.time, title: g.title, html: gEventHTML(g) }));
     return mine.concat(theirs).sort(byTime).map((x) => x.html);
   }
@@ -395,16 +410,29 @@
     return d && typeof d === 'object' ? d : {};
   }
 
+  // Forgiving streak: research shows one missed day doesn't undo a habit,
+  // so a single gap is allowed. Two missed days in a row ends the streak ("never miss twice").
   function routineStreak(slot) {
     let n = 0;
+    let misses = 0;
     let d = new Date();
     if (!routineDay(todayKey())[`${slot}All`]) d = addDays(d, -1); // today still in progress
     for (let i = 0; i < 400; i++) {
-      if (!routineDay(dateKey(d))[`${slot}All`]) break;
-      n++;
+      if (routineDay(dateKey(d))[`${slot}All`]) { n++; misses = 0; } else if (++misses >= 2) break;
       d = addDays(d, -1);
     }
     return n;
+  }
+
+  // Habits take ~66 days on average to feel automatic (Lally et al., 2010)
+  const habitDays = (slot) => Object.keys(state.routine.done).filter((k) => routineDay(k)[`${slot}All`]).length;
+
+  function untilBed() {
+    const now = new Date();
+    const [h, m] = state.routine.bed.split(':').map(Number);
+    let diff = h * 60 + m - (now.getHours() * 60 + now.getMinutes());
+    if (diff < -12 * 60) diff += 24 * 60; // lights-out after midnight
+    return diff;
   }
 
   function renderRoutine(hour) {
@@ -421,7 +449,19 @@
     card.classList.toggle('is-done', all);
     $('#routine-title').textContent = slot === 'morning' ? '☀️ Morning routine' : '🌙 Night routine';
     $('#routine-sub').textContent = (all ? 'All done, well done! 🎉' : `${count} of ${steps.length} done`) +
-      (streak ? ` · 🔥 ${plural(streak, 'day')} in a row` : '');
+      (streak ? ` · 🔥 ${streak}-day streak` : '');
+    const meta = [];
+    const anchor = slot === 'morning' ? state.routine.anchorM : state.routine.anchorN;
+    if (anchor) meta.push(`🔗 ${anchor}`);
+    if (slot === 'night' && state.routine.bed) {
+      const diff = untilBed();
+      const at = fmtTime(state.routine.bed);
+      if (diff > 0 && diff <= 6 * 60) meta.push(`🛏️ Lights out in ${diff >= 60 ? `${Math.floor(diff / 60)} h${diff % 60 ? ` ${diff % 60} min` : ''}` : `${diff} min`} (${at})`);
+      else if (diff <= 0 && diff > -3 * 60) meta.push(`🛏️ It's past lights-out (${at}). Time for bed 😴`);
+    }
+    const days = habitDays(slot);
+    if (days) meta.push(days >= 66 ? `🌳 ${days} days: this routine is a real habit now!` : `🌱 Habit-building: day ${days} of ~66`);
+    $('#routine-meta').innerHTML = meta.map((x) => `<span>${esc(x)}</span>`).join('');
     $('#routine-list').innerHTML = steps.map((s) => {
       const on = done.includes(s.id);
       return `<li><button class="routine-step${on ? ' done' : ''}" type="button" data-step="${esc(s.id)}" data-slot="${slot}" aria-pressed="${on}">
@@ -440,7 +480,7 @@
     day[`${slot}All`] = state.routine[slot].every((s) => list.includes(s.id));
     state.routine.done[key] = day;
     // keep about two months of history
-    const cutoff = dateKey(addDays(new Date(), -60));
+    const cutoff = dateKey(addDays(new Date(), -400));
     Object.keys(state.routine.done).forEach((k) => { if (k < cutoff) delete state.routine.done[k]; });
     save();
     render();
@@ -823,10 +863,12 @@
       fTime.value = item ? (item.time || '') : '';
     }
     $('#f-hint').textContent = isEvent
-      ? 'Leave the time empty for an all-day event.'
+      ? (item && item.repeat ? 'Changes apply to every repeat. ' : '') + 'Leave the time empty for an all-day event.'
       : 'Date and time are optional — add them to make it a reminder.';
     $('#f-clear-when').hidden = isEvent;
     $('#f-colors').hidden = !isEvent;
+    $('#f-repeat-field').hidden = !isEvent;
+    $('#f-repeat').value = item && item.repeat && REPEATS[item.repeat] ? item.repeat : '';
     const color = item ? safeColor(item.color) : 'pink';
     $$('input[name="color"]').forEach((r) => { r.checked = r.value === color; });
     $('#btn-delete').hidden = !item;
@@ -860,7 +902,8 @@
     if (kind === 'event') {
       if (!fDate.value) return showError('Events need a date', fDate);
       const color = ($('input[name="color"]:checked') || {}).value;
-      data = { title, date: fDate.value, time: fTime.value, color: safeColor(color) };
+      const repeat = $('#f-repeat').value;
+      data = { title, date: fDate.value, time: fTime.value, color: safeColor(color), repeat: REPEATS[repeat] ? repeat : '' };
       if (state.google.connected) {
         data.gSync = $('#f-gsync').checked;
         if (data.gSync) data.gDirty = true;
@@ -1133,7 +1176,7 @@
   // ---- Up next ----
   const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
   function timedOn(key) {
-    return state.events.filter((e) => e.date === key && e.time).map((e) => ({ title: e.title, time: e.time }))
+    return state.events.filter((e) => e.time && occursOn(e, key)).map((e) => ({ title: e.title, time: e.time }))
       .concat(gEventsOn(key).filter((g) => !g.allDay && g.time).map((g) => ({ title: g.title, time: g.time })))
       .sort(byTime);
   }
@@ -1553,6 +1596,9 @@
   const routineSheet = $('#routine-sheet');
   $('#routine-edit').addEventListener('click', () => {
     $('#routine-morning').value = state.routine.morning.map((s) => s.title).join('\n');
+    $('#routine-anchor-m').value = state.routine.anchorM;
+    $('#routine-anchor-n').value = state.routine.anchorN;
+    $('#routine-bed').value = state.routine.bed;
     $('#routine-night').value = state.routine.night.map((s) => s.title).join('\n');
     routineSheet.showModal();
   });
@@ -1566,6 +1612,9 @@
     });
     state.routine.morning = parse($('#routine-morning').value, state.routine.morning);
     state.routine.night = parse($('#routine-night').value, state.routine.night);
+    state.routine.anchorM = $('#routine-anchor-m').value.trim().slice(0, 60);
+    state.routine.anchorN = $('#routine-anchor-n').value.trim().slice(0, 60);
+    if (/^\d\d:\d\d$/.test($('#routine-bed').value)) state.routine.bed = $('#routine-bed').value;
     save();
     routineSheet.close();
     render();
@@ -1886,6 +1935,7 @@
       color: safeHex(cal.backgroundColor),
       title: ev.summary || '(No title)',
       link: typeof ev.htmlLink === 'string' && ev.htmlLink.startsWith('https://') ? ev.htmlLink : '',
+      series: typeof ev.recurringEventId === 'string' ? ev.recurringEventId : '',
     };
     if (ev.start.date) {
       const end = ev.end && ev.end.date ? ev.end.date : dateKey(addDays(parseKey(ev.start.date), 1));
@@ -1918,8 +1968,10 @@
 
   function gBody(ev) {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const RULES = { daily: 'RRULE:FREQ=DAILY', weekdays: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'RRULE:FREQ=WEEKLY' };
+    const recurrence = RULES[ev.repeat] ? [RULES[ev.repeat]] : [];
     if (!ev.time) {
-      return { summary: ev.title, start: { date: ev.date }, end: { date: dateKey(addDays(parseKey(ev.date), 1)) } };
+      return { summary: ev.title, start: { date: ev.date }, end: { date: dateKey(addDays(parseKey(ev.date), 1)) }, recurrence };
     }
     const [h, m] = ev.time.split(':').map(Number);
     const end = parseKey(ev.date);
@@ -1928,6 +1980,7 @@
       summary: ev.title,
       start: { dateTime: `${ev.date}T${ev.time}:00`, timeZone },
       end: { dateTime: `${dateKey(end)}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`, timeZone },
+      recurrence,
     };
   }
 
