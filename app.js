@@ -2896,6 +2896,71 @@
     setTimeout(() => goTo(b.dataset.go), 160); // let the little pop play first
   });
 
+  /* ================= Journal prompts: 2 a day ================= */
+  // One about the day, one about you (feelings, gratitude, growth). They change every day.
+  const PROMPTS_DAY = [
+    'What was the best part of today?',
+    'What took most of your energy today?',
+    'What is one thing you got done today, big or small?',
+    'Who did you talk to today, and how did it feel?',
+    'What surprised you today?',
+    'What would you do differently if you could redo today?',
+    'What made you laugh or smile today?',
+    'What was hard today, and how did you get through it?',
+    'What did you do today just for yourself?',
+    'Describe today in three words. Why those words?',
+    'What is something you learned today?',
+    'When did you feel most like yourself today?',
+    'What is one thing you are glad you didn\'t give up on today?',
+    'What did you put off today? What would make it easier tomorrow?',
+    'How did your body feel today: energy, sleep, food?',
+    'What moment from today do you want to remember?',
+  ];
+  const PROMPTS_YOU = [
+    'Name three small things you are grateful for right now.',
+    'What is on your mind that you want to let go of before bed?',
+    'What is one kind thing you can say to yourself today?',
+    'What are you looking forward to this week?',
+    'What does your ideal day look like a year from now?',
+    'What is something you are proud of yourself for lately?',
+    'What is draining you at the moment, and what could help?',
+    'Which nail set or idea are you most excited to try next?',
+    'What does "a good week" mean to you right now?',
+    'Who or what made your life a little easier recently?',
+    'What is one thing you want more of in your life? Less of?',
+    'If your best friend had your day, what would you tell them?',
+    'What worry feels big right now? What is one small step for it?',
+    'What is a habit that is working for you? Why do you think it works?',
+    'What would make tomorrow 1% better?',
+    'What did you need today that you didn\'t get? How can you give it to yourself?',
+  ];
+  let promptOffset = 0;
+  function promptsFor(key, off) {
+    const n = Math.floor(parseKey(key).getTime() / 86400000) + off * 3;
+    const a = PROMPTS_DAY[((n % PROMPTS_DAY.length) + PROMPTS_DAY.length) % PROMPTS_DAY.length];
+    const b = PROMPTS_YOU[(((n * 5 + 2) % PROMPTS_YOU.length) + PROMPTS_YOU.length) % PROMPTS_YOU.length];
+    return [a, b];
+  }
+  function renderPrompts(key) {
+    const text = $('#journal-text').value;
+    $('#prompt-list').innerHTML = promptsFor(key, promptOffset).map((p) =>
+      `<button class="prompt-btn${text.includes(p) ? ' used' : ''}" type="button" data-prompt="${esc(p)}">${esc(p)}</button>`).join('');
+  }
+  $('#prompt-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-prompt]');
+    if (!b) return;
+    const ta = $('#journal-text');
+    const p = b.dataset.prompt;
+    if (!ta.value.includes(p)) ta.value = `${ta.value.trim() ? `${ta.value.trimEnd()}\n\n` : ''}${p}\n`;
+    b.classList.add('used');
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+  $('#prompt-shuffle').addEventListener('click', () => {
+    promptOffset++;
+    if (editingJournal) renderPrompts(editingJournal);
+  });
+
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
   const ENERGY = { 1: '🪫 Low energy', 2: '🔋 Okay energy', 3: '⚡ High energy' };
@@ -2929,6 +2994,8 @@
     const long = fmtDate(key, { weekday: 'long', day: 'numeric', month: 'long' });
     $('#journal-title').textContent = ['Today', 'Yesterday'].includes(rel) ? `${rel}\n${long}` : long;
     $('#journal-context').textContent = entryContext(key);
+    promptOffset = 0;
+    renderPrompts(key);
     $$('input[name="jmood"]').forEach((r) => { r.checked = Number(r.value) === Number(e.mood); });
     $$('input[name="jenergy"]').forEach((r) => { r.checked = Number(r.value) === Number(e.energy); });
     $('#journal-text').value = e.text || '';
@@ -3013,7 +3080,7 @@
       ? `<div class="journal-card"><h2>${m ? `<span class="journal-mood-big">${MOODS[m][0]}</span>` : ''}Today: ${m ? MOODS[m][1] : 'written'}</h2>
           <p>${esc(today.text ? today.text.slice(0, 140) + (today.text.length > 140 ? '…' : '') : today.good ? `🌟 ${today.good}` : 'Add a few words about your day.')}</p>
           <button class="btn ghost" type="button" data-jday="${tk}">✏️ Edit today's entry</button></div>`
-      : `<div class="journal-card"><h2>📓 How did today go? ${whyBtn('journal')}</h2><p>A minute is enough: pick a mood and write a line or two.</p>
+      : `<div class="journal-card"><h2>📓 How did today go? ${whyBtn('journal')}</h2><p>A minute is enough: pick a mood and write a line or two.</p><p class="today-prompt">💭 ${esc(promptsFor(tk, 0)[0])}</p>
           <button class="btn primary" type="button" data-jday="${tk}">✍️ Write today's entry</button></div>`;
 
     // Gentle backup reminder once there's something worth protecting

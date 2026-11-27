@@ -744,6 +744,24 @@ html.themed .garden-card { background: linear-gradient(135deg, var(--card-a), va
 }
 .emblem-badge.soft { background: var(--card); color: var(--ink); box-shadow: 0 0 0 2px var(--line); }
 
+/* ---------- Journal prompts ---------- */
+.prompt-list { display: grid; gap: 8px; }
+.prompt-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 700;
+  text-align: left;
+  line-height: 1.4;
+}
+.prompt-btn.used { border-color: var(--accent); background: var(--accent-soft); }
+#prompt-shuffle { justify-self: start; }
+.journal-card .today-prompt { font-style: italic; }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {
