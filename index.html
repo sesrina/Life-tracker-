@@ -89,6 +89,7 @@
           <ul class="list" id="tomorrow-list"></ul>
         </div>
 
+        <section class="verse-card" id="verse-card" hidden aria-label="Verse for today"></section>
         <div class="snack-card" id="snack-card"></div>
       </section>
 
@@ -752,6 +753,16 @@ It never dies, it just waits for you 💚</p>
     </form>
   </dialog>
 
+  <!-- Saved verses -->
+  <dialog id="verses-sheet" class="sheet" aria-labelledby="verses-title">
+    <div class="sheet-body">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="verses-title">🕊️ Saved verses</h2>
+      <ul class="verse-list" id="verse-list"></ul>
+      <button class="btn ghost wide" type="button" id="verses-close">Done</button>
+    </div>
+  </dialog>
+
   <!-- Journal entry -->
   <dialog id="journal-sheet" class="sheet" aria-labelledby="journal-title">
     <form id="journal-form" class="sheet-body" novalidate autocomplete="off">
@@ -883,6 +894,10 @@ It never dies, it just waits for you 💚</p>
           <input type="text" id="profile-name" maxlength="30" autocomplete="given-name">
         </label>
         <button class="btn ghost wide" type="button" id="tour-again">👋 Show me around again</button>
+        <label class="toggle-row">
+          <input type="checkbox" id="verse-show">
+          <span>🕊️ Show a Bible verse each day (King James Version)</span>
+        </label>
       </section>
 
       <section class="settings-group">

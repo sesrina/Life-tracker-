@@ -86,6 +86,10 @@
         font: d.reading && ['nunito', 'verdana', 'atkinson'].includes(d.reading.font) ? d.reading.font : 'nunito',
         spacing: !!(d.reading && d.reading.spacing),
       },
+      verse: {
+        show: !(d.verse && d.verse.show === false),
+        saved: d.verse && Array.isArray(d.verse.saved) ? d.verse.saved.filter((x) => typeof x === 'string') : [],
+      },
       profile: {
         name: d.profile && typeof d.profile.name === 'string' ? d.profile.name.slice(0, 30) : '',
         toured: !!(d.profile && d.profile.toured),
@@ -632,6 +636,7 @@
     renderGardenCard();
     renderHabitCard();
     renderEmblems();
+    renderVerse();
     $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
 
     // Evening mode: from 8 pm, show what's coming tomorrow
@@ -3143,6 +3148,117 @@
     if (it) openLib(it.dataset.lib);
   });
 
+  /* ================= Verse for today (King James Version) ================= */
+  // Short, encouraging verses in King James wording, as in a Cambridge KJV. "LORD" is shown in small capitals, as printed.
+  const VERSES = [
+    ['Philippians 4:13', 'I can do all things through Christ which strengtheneth me.'],
+    ['Joshua 1:9', 'Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the LORD thy God is with thee whithersoever thou goest.'],
+    ['Isaiah 41:10', 'Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee; yea, I will uphold thee with the right hand of my righteousness.'],
+    ['Psalm 23:1', 'The LORD is my shepherd; I shall not want.'],
+    ['Proverbs 3:5–6', 'Trust in the LORD with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths.'],
+    ['Jeremiah 29:11', 'For I know the thoughts that I think toward you, saith the LORD, thoughts of peace, and not of evil, to give you an expected end.'],
+    ['Matthew 11:28', 'Come unto me, all ye that labour and are heavy laden, and I will give you rest.'],
+    ['Psalm 46:1', 'God is our refuge and strength, a very present help in trouble.'],
+    ['Lamentations 3:22–23', 'It is of the LORD\'s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.'],
+    ['Psalm 118:24', 'This is the day which the LORD hath made; we will rejoice and be glad in it.'],
+    ['Romans 8:28', 'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.'],
+    ['2 Timothy 1:7', 'For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind.'],
+    ['Isaiah 40:31', 'But they that wait upon the LORD shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint.'],
+    ['Psalm 55:22', 'Cast thy burden upon the LORD, and he shall sustain thee: he shall never suffer the righteous to be moved.'],
+    ['1 Peter 5:7', 'Casting all your care upon him; for he careth for you.'],
+    ['Philippians 4:6–7', 'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God. And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.'],
+    ['John 14:27', 'Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you. Let not your heart be troubled, neither let it be afraid.'],
+    ['Psalm 121:1–2', 'I will lift up mine eyes unto the hills, from whence cometh my help. My help cometh from the LORD, which made heaven and earth.'],
+    ['Proverbs 16:3', 'Commit thy works unto the LORD, and thy thoughts shall be established.'],
+    ['Galatians 6:9', 'And let us not be weary in well doing: for in due season we shall reap, if we faint not.'],
+    ['Psalm 30:5', 'For his anger endureth but a moment; in his favour is life: weeping may endure for a night, but joy cometh in the morning.'],
+    ['Psalm 139:14', 'I will praise thee; for I am fearfully and wonderfully made: marvellous are thy works; and that my soul knoweth right well.'],
+    ['Matthew 6:34', 'Take therefore no thought for the morrow: for the morrow shall take thought for the things of itself. Sufficient unto the day is the evil thereof.'],
+    ['Psalm 37:4', 'Delight thyself also in the LORD; and he shall give thee the desires of thine heart.'],
+    ['Psalm 34:18', 'The LORD is nigh unto them that are of a broken heart; and saveth such as be of a contrite spirit.'],
+    ['Romans 15:13', 'Now the God of hope fill you with all joy and peace in believing, that ye may abound in hope, through the power of the Holy Ghost.'],
+    ['2 Corinthians 12:9', 'And he said unto me, My grace is sufficient for thee: for my strength is made perfect in weakness. Most gladly therefore will I rather glory in my infirmities, that the power of Christ may rest upon me.'],
+    ['Psalm 27:1', 'The LORD is my light and my salvation; whom shall I fear? the LORD is the strength of my life; of whom shall I be afraid?'],
+    ['Zephaniah 3:17', 'The LORD thy God in the midst of thee is mighty; he will save, he will rejoice over thee with joy; he will rest in his love, he will joy over thee with singing.'],
+    ['Psalm 90:17', 'And let the beauty of the LORD our God be upon us: and establish thou the work of our hands upon us; yea, the work of our hands establish thou it.'],
+    ['Deuteronomy 31:6', 'Be strong and of a good courage, fear not, nor be afraid of them: for the LORD thy God, he it is that doth go with thee; he will not fail thee, nor forsake thee.'],
+    ['Psalm 16:11', 'Thou wilt shew me the path of life: in thy presence is fulness of joy; at thy right hand there are pleasures for evermore.'],
+    ['Isaiah 26:3', 'Thou wilt keep him in perfect peace, whose mind is stayed on thee: because he trusteth in thee.'],
+    ['James 1:5', 'If any of you lack wisdom, let him ask of God, that giveth to all men liberally, and upbraideth not; and it shall be given him.'],
+    ['Proverbs 31:25', 'Strength and honour are her clothing; and she shall rejoice in time to come.'],
+    ['Hebrews 13:5', 'Let your conversation be without covetousness; and be content with such things as ye have: for he hath said, I will never leave thee, nor forsake thee.'],
+    ['1 Corinthians 16:14', 'Let all your things be done with charity.'],
+    ['Psalm 143:8', 'Cause me to hear thy lovingkindness in the morning; for in thee do I trust: cause me to know the way wherein I should walk; for I lift up my soul unto thee.'],
+    ['Psalm 5:3', 'My voice shalt thou hear in the morning, O LORD; in the morning will I direct my prayer unto thee, and will look up.'],
+    ['Luke 1:37', 'For with God nothing shall be impossible.'],
+    ['Proverbs 21:5', 'The thoughts of the diligent tend only to plenteousness; but of every one that is hasty only to want.'],
+  ];
+  // A calm verse for the evening
+  const NIGHT_VERSE = ['Psalm 4:8', 'I will both lay me down in peace, and sleep: for thou, LORD, only makest me to dwell in safety.'];
+  let verseOffset = 0;
+  const verseHTML = (text) => esc(text).replace(/\bLORD\b/g, '<span class="lord">Lord</span>');
+  const verseByRef = (ref) => VERSES.concat([NIGHT_VERSE]).find((v) => v[0] === ref);
+
+  function currentVerse() {
+    const hour = new Date().getHours();
+    if (verseOffset === 0 && hour >= 21) return NIGHT_VERSE;
+    const n = Math.floor(parseKey(todayKey()).getTime() / 86400000) + verseOffset;
+    return VERSES[((n % VERSES.length) + VERSES.length) % VERSES.length];
+  }
+
+  function renderVerse() {
+    const card = $('#verse-card');
+    card.hidden = !state.verse.show;
+    if (card.hidden) return;
+    const [ref, text] = currentVerse();
+    const saved = state.verse.saved.includes(ref);
+    card.innerHTML = `<div class="verse-head"><span class="verse-label">🕊️ Verse for today</span></div>
+      <p class="verse-text">${verseHTML(text)}</p>
+      <p class="verse-ref">${esc(ref)} (KJV)</p>
+      <div class="verse-btns">
+        <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}">${saved ? '❤️ Saved' : '🤍 Save'}</button>
+        <button class="link-btn" type="button" data-verse="speak" aria-label="Read aloud">🔊 Read</button>
+        <button class="link-btn" type="button" data-verse="next">Another ➡️</button>
+        ${state.verse.saved.length ? `<button class="link-btn" type="button" data-verse="list">📖 Saved (${state.verse.saved.length})</button>` : ''}
+      </div>`;
+  }
+
+  function renderSavedVerses() {
+    const list = state.verse.saved.map(verseByRef).filter(Boolean);
+    $('#verse-list').innerHTML = list.length
+      ? list.map(([ref, text]) => `<li><p class="verse-text">${verseHTML(text)}</p><p class="verse-ref">${esc(ref)} (KJV)</p>
+          <button class="link-btn" type="button" data-unsave="${esc(ref)}">Remove</button></li>`).join('')
+      : '<li class="empty">Tap 🤍 Save on a verse to keep it here.</li>';
+  }
+
+  const versesSheet = $('#verses-sheet');
+  $('#verse-card').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-verse]');
+    if (!b) return;
+    const [ref, text] = currentVerse();
+    const act = b.dataset.verse;
+    if (act === 'next') { verseOffset++; renderVerse(); }
+    else if (act === 'speak') speak(`${text.replace(/\bLORD\b/g, 'Lord')} ${ref.replace('–', ' to ')}`);
+    else if (act === 'save') {
+      const has = state.verse.saved.includes(ref);
+      state.verse.saved = has ? state.verse.saved.filter((r) => r !== ref) : [ref, ...state.verse.saved];
+      save();
+      renderVerse();
+      if (!has) showToast('Verse saved ❤️');
+    } else if (act === 'list') { renderSavedVerses(); versesSheet.showModal(); }
+  });
+  $('#verse-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-unsave]');
+    if (!b) return;
+    state.verse.saved = state.verse.saved.filter((r) => r !== b.dataset.unsave);
+    save();
+    renderSavedVerses();
+    renderVerse();
+  });
+  $('#verses-close').addEventListener('click', () => versesSheet.close());
+  $('#verse-show').checked = state.verse.show;
+  $('#verse-show').addEventListener('change', (e) => { state.verse.show = e.target.checked; save(); render(); });
+
   /* ================= Swipe down to close pop-ups (like iPhone sheets) ================= */
   function enableSwipeClose(dlg) {
     let startY = null;
@@ -4147,6 +4263,7 @@
   function openSettings() {
     $('#g-client').value = state.google.clientId;
     $('#profile-name').value = state.profile.name;
+    $('#verse-show').checked = state.verse.show;
     $('#settings-more').open = !!state.google.clientId;
     renderSettings();
     renderPrivacy();

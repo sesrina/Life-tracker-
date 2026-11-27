@@ -36,6 +36,7 @@ A small, cute personal planner made for phones. It uses only HTML, CSS and JavaS
 - **Journal prompts**: two new prompts each day (one about your day, one about you) to help you start writing. Tap one to add it to your entry, or shuffle for different ones. When you track your cycle, the second prompt matches your phase
 - **Shortcut emblems**: a swipeable row of round shortcuts on Today to every part of the planner, with live badges
 - **My meals**: every meal you plan is saved, with how long it takes and its usual ingredients. Tap a time (15, 30, 45 min or 1 hour) to see what you can make, then have it tonight or add its ingredients to the shopping list in one tap
+- **Verse for today**: an encouraging King James Version verse at the bottom of Today, with save, read-aloud and another (a calm one at night). Turn it off in ⚙️ Settings
 - Everything is saved in your browser (`localStorage`), so it's still there after you close the app
 - Deleted something by mistake? Tap **Undo** on the pop-up
 

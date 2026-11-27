@@ -786,6 +786,39 @@ html.themed .garden-card { background: linear-gradient(135deg, var(--card-a), va
 .lib-time.none { background: var(--bg); color: var(--muted); font-weight: 700; }
 .lib-list .empty { list-style: none; }
 
+/* ---------- Verse for today ---------- */
+.verse-card + .snack-card { margin-top: 14px; }
+.verse-card {
+  position: relative;
+  overflow: hidden;
+  margin-top: 26px;
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--lavender), var(--pink));
+  box-shadow: var(--shadow);
+}
+html.themed .verse-card { background: linear-gradient(135deg, var(--lavender), var(--card-b)); }
+.verse-card::after {
+  content: "✨";
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 22px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.verse-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.verse-label { font-weight: 800; }
+.verse-text { margin: 0 0 8px; font-size: calc(18px * var(--fs, 1)); font-weight: 600; line-height: 1.55; }
+.verse-ref { margin: 0; font-weight: 800; color: var(--muted); }
+.lord { font-variant: small-caps; }
+.verse-btns { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 10px; }
+.verse-btns .link-btn { min-height: 44px; padding: 0 8px; }
+.verse-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.verse-list li { padding: 14px; border-radius: 16px; background: var(--bg); }
+.verse-list .verse-text { font-size: calc(16px * var(--fs, 1)); }
+.verse-list .empty { background: none; }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {
@@ -1583,7 +1616,7 @@ html.themed .tab.is-active, html.themed .btn-add { color: var(--accent-text, var
   :root { --bg: #fff; --card: #fff; --ink: #222; --muted: #555; --line: #ccc; }
   body { background: #fff; color: #222; font-size: calc(11px * var(--fs, 1)); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
-  .hello-card::before, .emblems, .fab, .seg, .week-seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
+  .hello-card::before, .emblems, .verse-card, .fab, .seg, .week-seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
   .app { max-width: none; padding: 0; }
   .app-header { padding: 0 0 4px; }
   h1 { font-size: calc(20px * var(--fs, 1)); }
