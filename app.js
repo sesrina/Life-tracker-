@@ -3143,6 +3143,65 @@
     if (it) openLib(it.dataset.lib);
   });
 
+  /* ================= Swipe down to close pop-ups (like iPhone sheets) ================= */
+  function enableSwipeClose(dlg) {
+    let startY = null;
+    let dy = 0;
+    let t0 = 0;
+    let fromTop = false;
+    let dragging = false;
+    const reset = () => {
+      dlg.style.transition = '';
+      dlg.style.transform = '';
+    };
+    dlg.addEventListener('touchstart', (e) => {
+      startY = null;
+      if (e.touches.length !== 1 || e.target.closest('input, textarea, select')) return;
+      const y = e.touches[0].clientY;
+      fromTop = y - dlg.getBoundingClientRect().top < 80; // the handle area at the top
+      if (!fromTop && dlg.scrollTop > 0) return; // let it scroll normally
+      startY = y;
+      dy = 0;
+      t0 = Date.now();
+      dragging = false;
+    }, { passive: true });
+    dlg.addEventListener('touchmove', (e) => {
+      if (startY === null) return;
+      dy = e.touches[0].clientY - startY;
+      if (!dragging) {
+        if (dy > 8 && (fromTop || dlg.scrollTop <= 0)) {
+          dragging = true;
+          dlg.style.transition = 'none';
+        } else if (dy < -4) {
+          startY = null; // swiping up: scroll as usual
+          return;
+        } else return;
+      }
+      e.preventDefault();
+      dlg.style.transform = `translateY(${Math.max(0, dy)}px)`;
+    }, { passive: false });
+    const end = () => {
+      if (startY === null) return;
+      startY = null;
+      if (!dragging) return;
+      dragging = false;
+      const fast = dy / Math.max(1, Date.now() - t0) > 0.6;
+      if (dy > 110 || (fast && dy > 40)) {
+        dlg.style.transition = 'transform .2s ease';
+        dlg.style.transform = 'translateY(100%)';
+        setTimeout(() => { if (dlg.open) dlg.close(); reset(); }, 200);
+      } else {
+        dlg.style.transition = 'transform .2s ease';
+        dlg.style.transform = '';
+        setTimeout(reset, 220);
+      }
+    };
+    dlg.addEventListener('touchend', end);
+    dlg.addEventListener('touchcancel', end);
+    dlg.addEventListener('close', reset);
+  }
+  $$('dialog.sheet').forEach(enableSwipeClose);
+
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
   const ENERGY = { 1: '🪫 Low energy', 2: '🔋 Okay energy', 3: '⚡ High energy' };

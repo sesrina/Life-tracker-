@@ -1302,7 +1302,7 @@ a.item-main { color: inherit; text-decoration: none; }
 @keyframes slide-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 #sheet-form, #day-form, .sheet-body { padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); }
-.sheet-handle { width: 48px; height: 6px; border-radius: 99px; background: var(--line); margin: 4px auto 14px; }
+.sheet-handle { touch-action: none; width: 48px; height: 6px; border-radius: 99px; background: var(--line); margin: 4px auto 14px; }
 #sheet-title { font-size: calc(24px * var(--fs, 1)); margin-bottom: 14px; }
 
 .field { display: grid; gap: 6px; margin: 0 0 14px; border: none; padding: 0; min-width: 0; }
