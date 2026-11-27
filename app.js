@@ -101,6 +101,8 @@
       meals: d.meals && typeof d.meals === 'object' && !Array.isArray(d.meals) ? d.meals : {},
       mealFavs: Array.isArray(d.mealFavs) ? d.mealFavs.filter((x) => typeof x === 'string') : [],
       mealShow: d.mealShow === 'all' ? 'all' : 'dinner',
+      mealLib: Array.isArray(d.mealLib) ? d.mealLib.filter((m) => m && m.id && typeof m.name === 'string') : [],
+      mealLibInit: !!d.mealLibInit,
       shopping: Array.isArray(d.shopping) ? d.shopping.filter((x) => x && x.id && typeof x.title === 'string') : [],
       plant: {
         name: d.plant && typeof d.plant.name === 'string' && d.plant.name ? d.plant.name : 'Pip',
@@ -1185,7 +1187,7 @@
   let lastDay = todayKey();
   function refreshIfNeeded() {
     if (sheet.open || daySheet.open || settingsSheet.open || routineSheet.open || journalSheet.open || focusSheet.open || dumpSheet.open || addSheet.open || tourEl.open
-      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open || habitSheet.open || mealSheet.open) return;
+      || whySheet.open || plantSheet.open || goalSheet.open || weeklySheet.open || gardenSheet.open || gardenEdit.open || habitSheet.open || mealSheet.open || libSheet.open) return;
     if (todayKey() !== lastDay) {
       lastDay = todayKey();
       weekStart = startOfWeek(new Date());
@@ -2730,6 +2732,7 @@
       }).join('')}</section>`;
     }
     $('#meal-days').innerHTML = html;
+    renderMealLib();
     renderShopping();
   }
 
@@ -2758,7 +2761,9 @@
       Object.values(mealDay(k)).forEach((v) => { if (typeof v === 'string' && v && !recent.includes(v)) recent.push(v); });
     });
     const favs = state.mealFavs.filter((f) => typeof f === 'string');
-    return [...favs.map((f) => ({ t: f, fav: true })), ...recent.filter((r) => !favs.includes(r)).map((r) => ({ t: r, fav: false }))].slice(0, 14);
+    const lib = state.mealLib.map((m) => m.name).filter((n) => !favs.includes(n) && !recent.includes(n)).sort();
+    return [...favs.map((f) => ({ t: f, fav: true })), ...recent.filter((r) => !favs.includes(r)).map((r) => ({ t: r, fav: false })),
+      ...lib.map((n) => ({ t: n, fav: false }))].slice(0, 24);
   }
 
   function openMeal(key, slot) {
@@ -2768,12 +2773,16 @@
     $('#meal-title').textContent = `${emoji} ${name}\n${['Today', 'Tomorrow', 'Yesterday'].includes(rel) ? rel : fmtDate(key, { weekday: 'long', day: 'numeric', month: 'short' })}`;
     const val = mealDay(key)[slot] || '';
     $('#meal-text').value = val;
+    $('#meal-mins').value = val && libFind(val) && libFind(val).mins ? libFind(val).mins : '';
     $('#meal-fav').checked = !!val && state.mealFavs.includes(val);
     $('#meal-ingredients').value = '';
     $('#meal-clear').hidden = !val;
     const sugg = mealSuggestions();
     $('#meal-favs-wrap').hidden = !sugg.length;
-    $('#meal-favs').innerHTML = sugg.map((s) => `<button class="chip" type="button" data-meal-pick="${esc(s.t)}">${s.fav ? '⭐ ' : ''}${esc(s.t)}</button>`).join('');
+    $('#meal-favs').innerHTML = sugg.map((s) => {
+      const lib = libFind(s.t);
+      return `<button class="chip" type="button" data-meal-pick="${esc(s.t)}">${s.fav ? '⭐ ' : ''}${esc(s.t)}${lib && lib.mins ? ` (${esc(fmtMins(lib.mins))})` : ''}</button>`;
+    }).join('');
     mealSheet.showModal();
   }
 
@@ -2782,6 +2791,8 @@
     if (!b) return;
     $('#meal-text').value = b.dataset.mealPick;
     $('#meal-fav').checked = state.mealFavs.includes(b.dataset.mealPick);
+    const lib = libFind(b.dataset.mealPick);
+    $('#meal-mins').value = lib && lib.mins ? lib.mins : '';
   });
   $('#meal-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2793,6 +2804,8 @@
     if (Object.keys(day).length) state.meals[key] = day; else delete state.meals[key];
     if (text && $('#meal-fav').checked && !state.mealFavs.includes(text)) state.mealFavs = [text, ...state.mealFavs].slice(0, 30);
     if (text && !$('#meal-fav').checked) state.mealFavs = state.mealFavs.filter((f) => f !== text);
+    const ingr = $('#meal-ingredients').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean);
+    if (text) saveToLib(text, $('#meal-mins').value, ingr);
     const added = addShopping($('#meal-ingredients').value.split('\n'));
     // keep about a year of meal history
     const cutoff = dateKey(addDays(new Date(), -370));
@@ -2997,6 +3010,137 @@
   $('#prompt-shuffle').addEventListener('click', () => {
     promptOffset++;
     if (editingJournal) renderPrompts(editingJournal);
+  });
+
+  /* ================= My meals: every planned meal is saved, with its cooking time ================= */
+  const libFind = (name) => state.mealLib.find((m) => m.name.toLowerCase() === String(name).trim().toLowerCase());
+  const fmtMins = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
+  const cleanMins = (v) => { const n = Math.round(Number(v)); return n >= 1 && n <= 600 ? n : 0; };
+  let libFilter = 0;
+  let editingLib = null;
+  const libSheet = $('#lib-sheet');
+
+  function saveToLib(name, mins, ingredients) {
+    let m = libFind(name);
+    if (!m) { m = { id: uid(), name: name.slice(0, 80), mins: 0, ingredients: [], created: Date.now() }; state.mealLib.push(m); }
+    if (cleanMins(mins)) m.mins = cleanMins(mins);
+    if (ingredients && ingredients.length) m.ingredients = ingredients.slice(0, 40);
+    m.used = (m.used || 0) + 1;
+    return m;
+  }
+
+  // First time: add every meal already in the planner
+  if (!state.mealLibInit) {
+    Object.values(state.meals).forEach((day) => Object.values(day || {}).forEach((v) => {
+      if (typeof v === 'string' && v && !libFind(v)) state.mealLib.push({ id: uid(), name: v.slice(0, 80), mins: 0, ingredients: [], created: Date.now() });
+    }));
+    state.mealFavs.forEach((v) => { if (!libFind(v)) state.mealLib.push({ id: uid(), name: v.slice(0, 80), mins: 0, ingredients: [], created: Date.now() }); });
+    state.mealLibInit = true;
+    save();
+  }
+
+  function renderMealLib() {
+    $$('#lib-filter [data-lfilter]').forEach((b) => b.classList.toggle('is-active', Number(b.dataset.lfilter) === libFilter));
+    let list = [...state.mealLib];
+    if (libFilter) list = list.filter((m) => m.mins && m.mins <= libFilter);
+    list.sort((a, b) => (Number(state.mealFavs.includes(b.name)) - Number(state.mealFavs.includes(a.name)))
+      || ((a.mins || 9999) - (b.mins || 9999)) || a.name.localeCompare(b.name));
+    let empty;
+    if (!state.mealLib.length) empty = 'Meals you plan are saved here automatically 🍽️';
+    else if (!list.length) {
+      const noTime = state.mealLib.filter((m) => !m.mins).length;
+      empty = `No meals that take ${fmtMins(libFilter)} or less yet.${noTime ? `\n${plural(noTime, 'meal')} still need a time: tap one under "Any" to add it.` : ''}`;
+    }
+    $('#lib-list').innerHTML = list.length
+      ? list.map((m) => `<li><button class="lib-item" type="button" data-lib="${esc(m.id)}">
+          <span class="lib-name">${state.mealFavs.includes(m.name) ? '⭐ ' : ''}${esc(m.name)}</span>
+          <span class="lib-time${m.mins ? '' : ' none'}">${m.mins ? `⏱️ ${esc(fmtMins(m.mins))}` : 'Add time'}</span></button></li>`).join('')
+      : `<li class="empty" style="white-space:pre-line">${esc(empty)}</li>`;
+  }
+
+  function openLib(id) {
+    const m = id ? state.mealLib.find((x) => x.id === id) : null;
+    editingLib = m ? m.id : null;
+    $('#lib-title').textContent = m ? m.name : 'New meal';
+    $('#lib-name').value = m ? m.name : '';
+    $('#lib-mins').value = m && m.mins ? m.mins : '';
+    $('#lib-ingredients').value = m && m.ingredients ? m.ingredients.join('\n') : '';
+    $('#lib-fav').checked = !!m && state.mealFavs.includes(m.name);
+    $('#lib-delete').hidden = !m;
+    libSheet.showModal();
+    if (!m) setTimeout(() => $('#lib-name').focus(), 50);
+  }
+
+  // Save the sheet's fields; returns the meal (or null if no name)
+  function saveLibForm() {
+    const name = $('#lib-name').value.trim().slice(0, 80);
+    if (!name) { showToast('Give the meal a name 🙂'); $('#lib-name').focus(); return null; }
+    const ingredients = $('#lib-ingredients').value.split('\n').map((x) => x.replace(/^[-*•\s]+/, '').trim()).filter(Boolean).slice(0, 40);
+    let m = editingLib ? state.mealLib.find((x) => x.id === editingLib) : null;
+    const clash = libFind(name);
+    if (!m && clash) m = clash;
+    if (!m) { m = { id: uid(), created: Date.now() }; state.mealLib.push(m); }
+    const oldName = m.name;
+    if (oldName && oldName !== name) {
+      // rename it everywhere it's planned
+      Object.values(state.meals).forEach((day) => Object.keys(day).forEach((s) => { if (day[s] === oldName) day[s] = name; }));
+      state.mealFavs = state.mealFavs.map((f) => (f === oldName ? name : f));
+    }
+    Object.assign(m, { name, mins: cleanMins($('#lib-mins').value), ingredients });
+    const fav = $('#lib-fav').checked;
+    if (fav && !state.mealFavs.includes(name)) state.mealFavs = [name, ...state.mealFavs].slice(0, 30);
+    if (!fav) state.mealFavs = state.mealFavs.filter((f) => f !== name);
+    editingLib = m.id;
+    save();
+    return m;
+  }
+
+  $('#lib-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!saveLibForm()) return;
+    libSheet.close();
+    render();
+    showToast('Meal saved 📖');
+  });
+  $('#lib-tonight').addEventListener('click', () => {
+    const m = saveLibForm();
+    if (!m) return;
+    const tk = todayKey();
+    state.meals[tk] = { ...mealDay(tk), d: m.name };
+    m.used = (m.used || 0) + 1;
+    save();
+    libSheet.close();
+    render();
+    showToast(`🍝 Tonight: ${m.name}${m.mins ? ` (${fmtMins(m.mins)})` : ''}`);
+    celebrate(false);
+  });
+  $('#lib-shop').addEventListener('click', () => {
+    const m = saveLibForm();
+    if (!m) return;
+    if (!m.ingredients.length) { showToast('Add some ingredients first 🛒'); $('#lib-ingredients').focus(); return; }
+    const n = addShopping(m.ingredients);
+    save();
+    renderShopping();
+    showToast(n ? `${plural(n, 'item')} added to your shopping list 🛒` : 'Those are already on your list ✓');
+  });
+  $('#lib-delete').addEventListener('click', () => {
+    const m = state.mealLib.find((x) => x.id === editingLib);
+    if (!m || !confirm(`Remove "${m.name}" from My meals? Days you've already planned stay as they are.`)) return;
+    state.mealLib = state.mealLib.filter((x) => x.id !== m.id);
+    state.mealFavs = state.mealFavs.filter((f) => f !== m.name);
+    save();
+    libSheet.close();
+    render();
+  });
+  $('#lib-cancel').addEventListener('click', () => libSheet.close());
+  libSheet.addEventListener('click', (e) => { if (e.target === libSheet) libSheet.close(); });
+  libSheet.addEventListener('close', () => { editingLib = null; });
+  $('#lib-add').addEventListener('click', () => openLib(null));
+  $('#meal-lib').addEventListener('click', (e) => {
+    const f = e.target.closest('[data-lfilter]');
+    if (f) { libFilter = Number(f.dataset.lfilter); renderMealLib(); return; }
+    const it = e.target.closest('[data-lib]');
+    if (it) openLib(it.dataset.lib);
   });
 
   /* ================= Journal ================= */

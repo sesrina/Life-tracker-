@@ -128,6 +128,21 @@
             <button class="chip" type="button" data-mshow="all">All meals</button>
           </div>
           <div id="meal-days"></div>
+          <section id="meal-lib">
+            <div class="section-head">
+              <h2>📖 My meals</h2>
+              <button class="btn-add" type="button" id="lib-add">+ Meal</button>
+            </div>
+            <p class="g-status">⏱️ How much time have you got?</p>
+            <div class="chips" id="lib-filter">
+              <button class="chip" type="button" data-lfilter="0">Any</button>
+              <button class="chip" type="button" data-lfilter="15">15 min</button>
+              <button class="chip" type="button" data-lfilter="30">30 min</button>
+              <button class="chip" type="button" data-lfilter="45">45 min</button>
+              <button class="chip" type="button" data-lfilter="60">1 hour</button>
+            </div>
+            <ul class="lib-list" id="lib-list"></ul>
+          </section>
           <div class="section-head"><h2>🛒 Shopping list</h2></div>
           <form class="quick-add" id="shop-add" autocomplete="off">
             <input type="text" id="shop-text" placeholder="Add an item…" maxlength="120" aria-label="Add a shopping item">
@@ -686,6 +701,10 @@ It never dies, it just waits for you 💚</p>
         <span>Quick pick</span>
         <div class="chips" id="meal-favs"></div>
       </div>
+      <label class="field">
+        <span>⏱️ Time to make (minutes, optional)</span>
+        <input type="number" id="meal-mins" min="1" max="600" inputmode="numeric" placeholder="30">
+      </label>
       <label class="toggle-row g-toggle">
         <input type="checkbox" id="meal-fav">
         <span>⭐ Save as a favourite</span>
@@ -697,6 +716,37 @@ It never dies, it just waits for you 💚</p>
       <div class="sheet-actions">
         <button class="btn danger" type="button" id="meal-clear">Clear</button>
         <button class="btn ghost" type="button" id="meal-cancel">Cancel</button>
+        <button class="btn primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- My meals: edit a saved meal -->
+  <dialog id="lib-sheet" class="sheet" aria-labelledby="lib-title">
+    <form id="lib-form" class="sheet-body" novalidate autocomplete="off">
+      <div class="sheet-handle" aria-hidden="true"></div>
+      <h2 id="lib-title">Meal</h2>
+      <label class="field">
+        <span>Name</span>
+        <input type="text" id="lib-name" maxlength="80" placeholder="Chicken tacos">
+      </label>
+      <label class="field">
+        <span>⏱️ Time to make (minutes)</span>
+        <input type="number" id="lib-mins" min="1" max="600" inputmode="numeric" placeholder="30">
+      </label>
+      <label class="field">
+        <span>🛒 Usual ingredients (one per line)</span>
+        <textarea id="lib-ingredients" rows="4" placeholder="Tortillas&#10;Chicken&#10;Salsa"></textarea>
+      </label>
+      <label class="toggle-row g-toggle">
+        <input type="checkbox" id="lib-fav">
+        <span>⭐ Favourite</span>
+      </label>
+      <button class="btn primary wide" type="button" id="lib-tonight">🍽️ Have it for dinner tonight</button>
+      <button class="btn ghost wide" type="button" id="lib-shop">🛒 Add ingredients to shopping list</button>
+      <div class="sheet-actions">
+        <button class="btn danger" type="button" id="lib-delete">Delete</button>
+        <button class="btn ghost" type="button" id="lib-cancel">Cancel</button>
         <button class="btn primary" type="submit">Save</button>
       </div>
     </form>
