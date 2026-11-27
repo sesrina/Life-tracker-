@@ -3189,7 +3189,15 @@
       if (dy > 110 || (fast && dy > 40)) {
         dlg.style.transition = 'transform .2s ease';
         dlg.style.transform = 'translateY(100%)';
-        setTimeout(() => { if (dlg.open) dlg.close(); reset(); }, 200);
+        setTimeout(() => {
+          if (dlg.open && !dismissSheet(dlg)) {
+            // couldn't save (e.g. a title is missing): slide back so you can fix it
+            dlg.style.transform = '';
+            setTimeout(reset, 220);
+            return;
+          }
+          reset();
+        }, 200);
       } else {
         dlg.style.transition = 'transform .2s ease';
         dlg.style.transform = '';
@@ -3200,7 +3208,38 @@
     dlg.addEventListener('touchcancel', end);
     dlg.addEventListener('close', reset);
   }
-  $$('dialog.sheet').forEach(enableSwipeClose);
+  // Swiping away or tapping outside saves what you typed (Cancel still means "don't save")
+  const AUTOSAVE_FORMS = new Set(['sheet-form', 'journal-form', 'day-form', 'meal-form', 'lib-form', 'goal-form',
+    'garden-form', 'routine-form', 'dump-form', 'plant-form']);
+  function dismissSheet(dlg) {
+    if (dlg.dataset.dirty === '1') {
+      if (dlg.id === 'habit-sheet' && !$('#habit-edit').hidden) { $('#habit-save').click(); if (dlg.open) dlg.close(); return true; }
+      const form = dlg.querySelector('form');
+      if (form && AUTOSAVE_FORMS.has(form.id)) {
+        form.requestSubmit();
+        return !dlg.open; // still open means something needs fixing first
+      }
+    }
+    if (dlg.open) dlg.close();
+    return true;
+  }
+  $$('dialog.sheet').forEach((dlg) => {
+    enableSwipeClose(dlg);
+    const markDirty = () => { dlg.dataset.dirty = '1'; };
+    dlg.addEventListener('input', markDirty);
+    dlg.addEventListener('change', markDirty);
+    // quick-pick buttons fill in fields without typing
+    dlg.addEventListener('click', (e) => {
+      if (e.target.closest('[data-meal-pick], [data-prompt], [data-habit-idea], [data-pick], #f-clear-when, #garden-photo-remove')) markDirty();
+    });
+    dlg.addEventListener('close', () => { delete dlg.dataset.dirty; });
+    // tapping the dimmed background: save first (runs before the older "just close" handlers)
+    dlg.addEventListener('click', (e) => {
+      if (e.target !== dlg) return;
+      e.stopImmediatePropagation();
+      dismissSheet(dlg);
+    }, { capture: true });
+  });
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
