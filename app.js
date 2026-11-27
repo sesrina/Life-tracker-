@@ -621,13 +621,14 @@
     // Only the next 3 to-dos, so it never feels like too much
     const pending = todos.filter((t) => !t.done);
     const collapsed = !showAllToday && pending.length > 3;
-    const shown = collapsed ? pending.slice(0, 3) : todos;
+    // Finished to-dos leave Today (they stay in the To-do tab under Done)
+    const shown = collapsed ? pending.slice(0, 3) : pending;
     $('#today-todos').innerHTML = shown.length
       ? shown.map(todoHTML).join('')
-      : emptyHTML('All clear! Tap ➕ to add a to-do 🌱');
+      : emptyHTML(done ? `All done for today 🎉\n${plural(done, 'to-do')} ticked off` : 'All clear! Tap ➕ to add a to-do 🌱');
     const more = $('#today-more');
     more.hidden = !(collapsed || (showAllToday && pending.length > 3));
-    more.textContent = collapsed ? `Show ${todos.length - 3} more` : 'Just show the next 3';
+    more.textContent = collapsed ? `Show ${pending.length - 3} more` : 'Just show the next 3';
     $('#focus-start').hidden = !pending.length;
     $('#focus-start').textContent = `🎯 Focus mode\n${plural(pending.length, 'thing')} to do`;
     renderUpNext();
@@ -1129,6 +1130,12 @@
     const li = actionBtn.closest('[data-kind]');
     if (!li) return;
     const { kind, id } = li.dataset;
+    // On Today, a ticked to-do shows its tick, fades out, then leaves the list
+    if (actionBtn.dataset.action === 'toggle' && li.closest('#today-todos') && !li.classList.contains('done') && !li.classList.contains('leaving')) {
+      li.classList.add('done', 'leaving');
+      setTimeout(() => { if (kind === 'gtask') toggleGTask(id); else toggleTodo(id); }, 550);
+      return;
+    }
     if (kind === 'gtask') {
       if (actionBtn.dataset.action === 'toggle') toggleGTask(id); else openGTask(id);
       return;
@@ -2322,7 +2329,16 @@
 
   document.addEventListener('click', (e) => {
     const w = e.target.closest('[data-water]');
-    if (w) { waterPlant(w.dataset.water); return; }
+    if (w) {
+      // On Today, the watered plant fades off the card first
+      const row = w.closest('#garden-card .garden-row');
+      if (row) {
+        if (row.classList.contains('leaving')) return;
+        row.classList.add('leaving');
+        setTimeout(() => waterPlant(w.dataset.water), 550);
+      } else waterPlant(w.dataset.water);
+      return;
+    }
     const ed = e.target.closest('[data-garden-edit]');
     if (ed) { openGardenEdit(ed.dataset.gardenEdit); return; }
     if (e.target.closest('[data-garden-manage]')) openGardenManager();
@@ -2542,6 +2558,7 @@
     }
   }
 
+  let showDoneHabits = false;
   function renderHabitCard() {
     const card = $('#habit-card');
     if (!state.habits.length) { card.hidden = true; return; }
@@ -2550,11 +2567,12 @@
     const done = state.habits.filter((h) => habitDone(h.id, k)).length;
     card.innerHTML = `<div class="garden-head"><h2>✨ Habits ${whyBtn('habits')}</h2>
       <button class="link-btn" type="button" data-habit-open>See month</button></div>
-      <p class="habit-sub">${done} of ${state.habits.length} done today</p>
-      <div class="habit-chips">${state.habits.map((h) => {
+      ${(() => { if (!done) showDoneHabits = false; return ''; })()}<p class="habit-sub">${done === state.habits.length ? 'All habits done today ✨' : `${done} of ${state.habits.length} done today`}</p>
+      <div class="habit-chips">${state.habits.filter((h) => showDoneHabits || !habitDone(h.id, k)).map((h) => {
         const on = habitDone(h.id, k);
         return `<button class="habit-chip${on ? ' on' : ''}" type="button" data-habit="${esc(h.id)}" aria-pressed="${on}"><span class="tick" aria-hidden="true">✓</span>${esc(h.title)}</button>`;
-      }).join('')}</div>`;
+      }).join('')}</div>
+      ${done ? `<button class="link-btn" type="button" data-habit-showdone>${showDoneHabits ? 'Hide done' : `Show done (${done})`}</button>` : ''}`;
   }
 
   function renderHabitSheet() {
@@ -2623,7 +2641,16 @@
   habitSheet.addEventListener('click', (e) => { if (e.target === habitSheet) habitSheet.close(); });
   document.addEventListener('click', (e) => {
     const h = e.target.closest('[data-habit]');
-    if (h) { toggleHabit(h.dataset.habit); return; }
+    if (h) {
+      // On Today, a finished habit shows its tick, fades out, then leaves the card
+      if (h.closest('#habit-card') && !h.classList.contains('on') && !showDoneHabits) {
+        if (h.classList.contains('leaving')) return;
+        h.classList.add('on', 'leaving');
+        setTimeout(() => toggleHabit(h.dataset.habit), 550);
+      } else toggleHabit(h.dataset.habit);
+      return;
+    }
+    if (e.target.closest('[data-habit-showdone]')) { showDoneHabits = !showDoneHabits; renderHabitCard(); return; }
     if (e.target.closest('[data-habit-open]')) openHabitSheet(false);
   });
 
