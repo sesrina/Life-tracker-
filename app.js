@@ -3195,6 +3195,53 @@
   ];
   // A calm verse for the evening
   const NIGHT_VERSE = ['Psalm 4:8', 'I will both lay me down in peace, and sleep: for thou, LORD, only makest me to dwell in safety.'];
+  // Short, plain-English explanations of each verse
+  const VERSE_MEANINGS = {
+    'Philippians 4:13': 'Paul wrote this from prison, about learning to be content whether he had a lot or very little. It means Christ gives you the strength to handle whatever season you are in, good or hard.',
+    'Joshua 1:9': 'God said this to Joshua as he took on a huge new role, leading a whole nation. Be brave and don\'t panic ("dismayed" means discouraged), because God goes with you wherever you go.',
+    'Isaiah 41:10': 'A promise to people who felt small and afraid: you don\'t have to be scared, because God is with you. He will make you strong, help you, and hold you up.',
+    'Psalm 23:1': 'King David, who was a shepherd as a boy, pictures God as a shepherd caring for his sheep. "I shall not want" means "I will have what I truly need."',
+    'Proverbs 3:5–6': 'Trust God with your whole heart instead of relying only on your own figuring-out. Include him in every part of life, and he will guide you and make your way clear.',
+    'Jeremiah 29:11': 'Written to people living far from home in exile, who would be there for 70 years. Even then, God\'s plans for them were for peace and good, to give them hope and a future ("an expected end").',
+    'Matthew 11:28': 'Jesus invites anyone who is worn out or weighed down to come to him and find rest. You don\'t have to carry everything alone.',
+    'Psalm 46:1': 'God is a safe place and a source of strength, and he is close by right when trouble comes, not far away.',
+    'Lamentations 3:22–23': 'Written after a terrible disaster. Even then, the writer saw that God\'s kindness hadn\'t run out. His mercy is new every morning, so each day is a fresh start.',
+    'Psalm 118:24': 'Today is a gift from God, so choose to look for the joy in it, even if it\'s an ordinary day.',
+    'Romans 8:28': 'For people who love God, he can work all things, even hard things, together for good. It doesn\'t say everything is good, but that good can come out of it.',
+    '2 Timothy 1:7': 'Fear and timidity don\'t come from God. He gives power, love, and a "sound mind": self-control and clear thinking.',
+    'Isaiah 40:31': 'People who wait on God and trust him get their strength renewed, so they can keep going without burning out, like an eagle soaring on the wind.',
+    'Psalm 55:22': 'Hand your heavy worries over to God, and he will hold you up. "He shall never suffer the righteous to be moved" means he won\'t let those who trust him be knocked down for good.',
+    '1 Peter 5:7': 'Give all your worries to God, because he truly cares about you, including the small, everyday things.',
+    'Philippians 4:6–7': '"Be careful for nothing" is old English for "don\'t be anxious about anything." Instead, talk to God about everything, with thanks, and his peace, deeper than we can understand, will guard your heart and mind.',
+    'John 14:27': 'Jesus said this to his friends the night before he died. His peace isn\'t like the world\'s, which depends on things going well. So you don\'t have to let your heart be troubled or afraid.',
+    'Psalm 121:1–2': 'A song travellers sang on the long walk to Jerusalem. Looking up at the big hills, the writer remembers that help comes from God, who made those hills and everything else.',
+    'Proverbs 16:3': 'Hand your work and plans over to God, and they will become steady and firm. A good one for your business plans.',
+    'Galatians 6:9': 'Don\'t get tired of doing good. If you don\'t give up, you will see the results "in due season", in the right time.',
+    'Psalm 30:5': 'Hard times and tears may last a night, but joy comes again in the morning. Sadness isn\'t forever.',
+    'Psalm 139:14': 'You were made with great care: "fearfully" here means with awe and reverence. You are a wonderful creation, and your worth isn\'t up for debate.',
+    'Matthew 6:34': '"Take no thought" means "don\'t worry." Focus on today, and let tomorrow take care of itself. Each day has enough to deal with on its own.',
+    'Psalm 37:4': 'Find your joy in God, and he will shape and fulfil the desires of your heart.',
+    'Psalm 34:18': 'God is especially close to people who are heartbroken or crushed in spirit. You are not alone in your lowest moments.',
+    'Romans 15:13': 'A blessing: may God, the source of all hope, fill you with joy and peace as you trust him, so much that hope overflows.',
+    '2 Corinthians 12:9': 'Paul asked God three times to take away a struggle. God answered that his grace is enough, and that weakness is where God\'s strength shows most.',
+    'Psalm 27:1': 'If God is your light and your safety, there is no one you ultimately need to fear.',
+    'Zephaniah 3:17': 'God is right there with you, and he delights in you so much that he rejoices over you with singing.',
+    'Psalm 90:17': 'A prayer for God\'s favour on everyday life, and to "establish the work of our hands": to make our daily work last and matter. Lovely for your nail work.',
+    'Deuteronomy 31:6': 'Moses said this to the people before they entered a new land. Be strong and brave, because God goes with you and will never leave you ("forsake" means abandon).',
+    'Psalm 16:11': 'God shows us the way to a full life ("shew" is old spelling for "show"), and being close to him brings real, lasting joy.',
+    'Isaiah 26:3': 'When your mind keeps coming back to God and trusting him, he keeps you in deep, complete peace.',
+    'James 1:5': 'If you don\'t know what to do, ask God for wisdom. He gives generously and won\'t scold you for asking ("upbraideth not").',
+    'Proverbs 31:25': 'This describes a strong, capable woman: she is clothed in strength and dignity, and she can face the future with a smile instead of fear.',
+    'Hebrews 13:5': '"Conversation" here means your way of life. Don\'t be ruled by the love of money, and be content with what you have, because God promises never to leave you.',
+    '1 Corinthians 16:14': '"Charity" is old English for love. Do everything you do with love.',
+    'Psalm 143:8': 'A morning prayer: let me hear about your love today, and show me which way to go, because I trust you.',
+    'Psalm 5:3': 'Starting the day by talking to God, then watching hopefully ("look up") for what he will do.',
+    'Luke 1:37': 'The angel\'s words to Mary when she was told something that seemed impossible: nothing is impossible with God.',
+    'Proverbs 21:5': 'Careful, steady planning leads to having plenty, while rushing and shortcuts lead to going without. A good one for budgeting and business.',
+    'Psalm 4:8': 'David could lie down and sleep peacefully, because he trusted God to keep him safe. A good one to end the day with.',
+  };
+  let verseOpen = false;
+
   let verseOffset = 0;
   const verseHTML = (text) => esc(text).replace(/\bLORD\b/g, '<span class="lord">Lord</span>');
   const verseByRef = (ref) => VERSES.concat([NIGHT_VERSE]).find((v) => v[0] === ref);
@@ -3215,7 +3262,9 @@
     card.innerHTML = `<div class="verse-head"><span class="verse-label">🕊️ Verse for today</span></div>
       <p class="verse-text">${verseHTML(text)}</p>
       <p class="verse-ref">${esc(ref)} (KJV)</p>
+      ${verseOpen && VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
       <div class="verse-btns">
+        ${VERSE_MEANINGS[ref] ? `<button class="link-btn" type="button" data-verse="meaning" aria-expanded="${verseOpen}">${verseOpen ? '💬 Hide meaning' : '💬 What it means'}</button>` : ''}
         <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}">${saved ? '❤️ Saved' : '🤍 Save'}</button>
         <button class="link-btn" type="button" data-verse="speak" aria-label="Read aloud">🔊 Read</button>
         <button class="link-btn" type="button" data-verse="next">Another ➡️</button>
@@ -3227,6 +3276,7 @@
     const list = state.verse.saved.map(verseByRef).filter(Boolean);
     $('#verse-list').innerHTML = list.length
       ? list.map(([ref, text]) => `<li><p class="verse-text">${verseHTML(text)}</p><p class="verse-ref">${esc(ref)} (KJV)</p>
+          ${VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
           <button class="link-btn" type="button" data-unsave="${esc(ref)}">Remove</button></li>`).join('')
       : '<li class="empty">Tap 🤍 Save on a verse to keep it here.</li>';
   }
@@ -3237,8 +3287,9 @@
     if (!b) return;
     const [ref, text] = currentVerse();
     const act = b.dataset.verse;
-    if (act === 'next') { verseOffset++; renderVerse(); }
-    else if (act === 'speak') speak(`${text.replace(/\bLORD\b/g, 'Lord')} ${ref.replace('–', ' to ')}`);
+    if (act === 'next') { verseOffset++; verseOpen = false; renderVerse(); }
+    else if (act === 'meaning') { verseOpen = !verseOpen; renderVerse(); }
+    else if (act === 'speak') speak(`${text.replace(/\bLORD\b/g, 'Lord')} ${ref.replace('–', ' to ')}.${verseOpen && VERSE_MEANINGS[ref] ? ` What it means: ${VERSE_MEANINGS[ref]}` : ''}`);
     else if (act === 'save') {
       const has = state.verse.saved.includes(ref);
       state.verse.saved = has ? state.verse.saved.filter((r) => r !== ref) : [ref, ...state.verse.saved];
