@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800&family=Caveat:wght@600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -44,6 +44,11 @@
           <button class="plant-chip" type="button" id="plant-chip"></button>
         </div>
         <nav class="emblems" id="emblems" aria-label="Shortcuts"></nav>
+        <button class="note-card" type="button" id="note-card" aria-label="Reminder to self. Tap for another">
+          <span class="note-clip" aria-hidden="true">📎</span>
+          <span class="note-label">Reminder to self</span>
+          <span class="note-text" id="note-text"></span>
+        </button>
         <div class="upnext" id="upnext" hidden aria-live="polite"></div>
         <button class="btn primary wide focus-btn" type="button" id="focus-start" hidden>🎯 Focus mode</button>
         <button class="btn ghost wide weekly-nudge" type="button" id="today-weekly" hidden>🗓️ Time for your weekly reset</button>
@@ -64,6 +69,7 @@
         </section>
         <button class="btn primary wide journal-prompt" type="button" id="today-journal" hidden>📓 How did today go?</button>
         <section class="garden-card habit-card" id="habit-card" hidden></section>
+        <section class="garden-card water-card" id="water-card" aria-label="Water tracker"></section>
         <button class="cycle-mini" type="button" id="today-cycle" hidden></button>
         <section class="garden-card" id="garden-card" hidden></section>
 

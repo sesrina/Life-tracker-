@@ -873,6 +873,164 @@ body { background-image: var(--pattern); background-size: 64px 64px; }
 }
 @media print { body { background-image: none; } .hello-card::after { display: none; } }
 
+/* ---------- Planner paper: grid, washi tape, label tabs, sticky note ---------- */
+:root {
+  --grid: color-mix(in srgb, var(--ink) 5%, transparent);
+  --tape: repeating-linear-gradient(45deg, rgba(232, 120, 159, 0.5) 0 6px, rgba(255, 255, 255, 0.55) 6px 12px);
+}
+:root[data-look="cherry"] { --tape: repeating-linear-gradient(45deg, rgba(163, 18, 42, 0.42) 0 6px, rgba(255, 250, 246, 0.65) 6px 12px); }
+:root[data-look="clean"] { --tape: linear-gradient(rgba(214, 192, 164, 0.75), rgba(214, 192, 164, 0.75)); }
+:root[data-look="matcha"] { --tape: repeating-linear-gradient(90deg, rgba(79, 122, 69, 0.45) 0 8px, rgba(244, 199, 207, 0.7) 8px 16px); }
+:root[data-look="y2k"] { --tape: linear-gradient(90deg, rgba(185, 198, 255, 0.8), rgba(243, 182, 230, 0.8), rgba(189, 240, 255, 0.8)); }
+:root[data-look="midnight"] { --tape: repeating-linear-gradient(45deg, rgba(201, 182, 255, 0.4) 0 6px, rgba(255, 255, 255, 0.12) 6px 12px); }
+
+/* faint graph-paper grid behind everything */
+body {
+  background-image: var(--pattern), linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 64px 64px, 24px 24px, 24px 24px;
+}
+
+/* washi tape holding the cards on */
+.upnext, .routine-card, .snack-card, .verse-card, .garden-card, .journal-card, .weekly-card, .cycle-card { position: relative; }
+.verse-card { overflow: visible; }
+.upnext::before, .routine-card::before, .snack-card::before, .verse-card::before,
+.garden-card::before, .journal-card::before, .weekly-card::before, .cycle-card::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 84px;
+  height: 20px;
+  transform: translateX(-50%) rotate(-3deg);
+  background: var(--tape);
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 1;
+}
+.routine-card::before, .garden-card::before { left: 24%; transform: translateX(-50%) rotate(4deg); }
+.snack-card::before, .journal-card::before, .water-card::before { left: 76%; transform: translateX(-50%) rotate(-5deg); }
+
+/* section titles on a little label tab */
+.section-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px 4px 12px;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px 16px 16px 6px;
+  background: var(--accent-soft);
+}
+
+/* "Reminder to self" sticky note */
+.note-card {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: calc(100% - 28px);
+  margin: 6px auto 4px;
+  padding: 18px 20px 16px;
+  border: none;
+  border-radius: 4px 4px 18px 4px;
+  background: var(--butter);
+  color: var(--ink);
+  text-align: left;
+  transform: rotate(-1.2deg);
+  box-shadow: 0 8px 18px rgba(80, 50, 30, 0.12);
+}
+.note-clip { position: absolute; top: -14px; left: 18px; font-size: 26px; transform: rotate(-20deg); }
+.note-label { font-size: calc(13px * var(--fs, 1)); font-weight: 800; color: var(--muted); }
+.note-text { font-family: "Caveat", "Nunito", cursive; font-size: calc(27px * var(--fs, 1)); font-weight: 700; line-height: 1.2; }
+html.font-verdana .note-text, html.font-atkinson .note-text { font-family: inherit; font-size: calc(19px * var(--fs, 1)); }
+.note-card:active { transform: rotate(-1.2deg) scale(0.98); }
+
+/* water tracker */
+.water-glasses { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.glass {
+  aspect-ratio: 3 / 4;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  border-top-width: 0;
+  border-radius: 4px 4px 12px 12px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.glass::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: #7fb8e6; transition: height .25s ease; }
+.glass.full::after { height: 78%; }
+.glass.full { border-color: #5b9bd0; }
+
+/* ---------- Fun borders ---------- */
+/* Brain snack: spiral-notebook rings along the top (instead of tape) */
+.snack-card { position: relative; padding-top: 30px; }
+.snack-card::before { display: none; }
+.snack-card::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 22px;
+  right: 22px;
+  height: 14px;
+  background:
+    radial-gradient(circle at 7px 7px, var(--bg) 0 4px, color-mix(in srgb, var(--ink) 40%, transparent) 4.5px 6px, transparent 6.5px) 0 0 / 24px 14px;
+  background-repeat: space no-repeat;
+  pointer-events: none;
+}
+
+/* Up next: a ticket with notches on each side (instead of tape) */
+.upnext::before { display: none; }
+.upnext {
+  -webkit-mask:
+    radial-gradient(circle 11px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 11px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  mask:
+    radial-gradient(circle 11px at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+    radial-gradient(circle 11px at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  border-style: dashed;
+}
+
+/* Verse: a thin inner frame, like a framed print */
+.verse-card {
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 7px color-mix(in srgb, var(--card) 45%, transparent),
+    inset 0 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent);
+  padding: 22px 24px 18px;
+}
+
+/* Plants: an arched top, like a garden window */
+#garden-card { border-radius: 50% 50% var(--radius) var(--radius) / 64px 64px var(--radius) var(--radius); padding-top: 30px; }
+#garden-card .garden-head { justify-content: center; position: relative; }
+#garden-card .garden-head .link-btn { position: absolute; right: 0; }
+
+/* Habits: a folded-down corner, like a dog-eared page */
+#habit-card { border-top-right-radius: 0; }
+#habit-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(225deg, var(--bg) 50%, color-mix(in srgb, var(--ink) 14%, var(--card)) 50%);
+  border-bottom-left-radius: 8px;
+  box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
+/* Habits, water and plants: a stitched edge */
+.garden-card { outline: 2px dashed color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: -8px; }
+
+/* Journal card: faint lined notebook paper with a margin line */
+#journal-today .journal-card {
+  background:
+    linear-gradient(90deg, transparent 30px, color-mix(in srgb, var(--accent) 35%, transparent) 30px 32px, transparent 32px),
+    repeating-linear-gradient(transparent 0 31px, color-mix(in srgb, var(--ink) 9%, transparent) 31px 32px),
+    linear-gradient(135deg, var(--card-a, var(--lavender)), var(--card-b, var(--pink)));
+  padding-left: 44px;
+}
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {

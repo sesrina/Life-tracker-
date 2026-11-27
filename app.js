@@ -102,6 +102,7 @@
       plants: Array.isArray(d.plants) ? d.plants.filter((p) => p && p.id && typeof p.name === 'string') : [],
       habits: Array.isArray(d.habits) ? d.habits.filter((h) => h && h.id && typeof h.title === 'string') : [],
       habitLog: d.habitLog && typeof d.habitLog === 'object' && !Array.isArray(d.habitLog) ? d.habitLog : {},
+      water: d.water && typeof d.water === 'object' && !Array.isArray(d.water) ? d.water : {},
       meals: d.meals && typeof d.meals === 'object' && !Array.isArray(d.meals) ? d.meals : {},
       mealFavs: Array.isArray(d.mealFavs) ? d.mealFavs.filter((x) => typeof x === 'string') : [],
       mealShow: d.mealShow === 'all' ? 'all' : 'dinner',
@@ -636,6 +637,8 @@
     renderSnack();
     renderGardenCard();
     renderHabitCard();
+    renderWater();
+    renderNote();
     renderEmblems();
     renderVerse();
     $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
@@ -3416,6 +3419,54 @@
   $('#verses-close').addEventListener('click', () => versesSheet.close());
   $('#verse-show').checked = state.verse.show;
   $('#verse-show').addEventListener('change', (e) => { state.verse.show = e.target.checked; save(); render(); });
+
+  /* ================= Sticky note & water tracker ================= */
+  const NOTES = [
+    'Progress, not perfection.',
+    'Small steps, big dreams.',
+    'You are doing your best, and that\'s enough.',
+    'Focus on your goals, not your distractions.',
+    'Same girl, bigger dreams.',
+    'A better me is always in the plan.',
+    'Plan it. Do it. Slay it.',
+    'Good things take time.',
+    'Done is better than perfect.',
+    'Rest is productive too.',
+    'One thing at a time.',
+    'You\'ve got this.',
+    'Be proud of how far you\'ve come.',
+    'Your pace is the right pace.',
+  ];
+  let noteOffset = 0;
+  function renderNote() {
+    const n = Math.floor(parseKey(todayKey()).getTime() / 86400000) + noteOffset;
+    $('#note-text').textContent = NOTES[((n % NOTES.length) + NOTES.length) % NOTES.length];
+  }
+  $('#note-card').addEventListener('click', () => { noteOffset++; renderNote(); });
+
+  const WATER_GOAL = 8;
+  function renderWater() {
+    const k = todayKey();
+    const n = Math.min(WATER_GOAL, Number(state.water[k]) || 0);
+    $('#water-card').innerHTML = `<div class="garden-head"><h2>💧 Water</h2></div>
+      <p class="habit-sub">${n >= WATER_GOAL ? 'All 8 glasses. Well done 💧' : `${n} of ${WATER_GOAL} glasses`}</p>
+      <div class="water-glasses">${Array.from({ length: WATER_GOAL }, (_, i) =>
+        `<button class="glass${i < n ? ' full' : ''}" type="button" data-glass="${i + 1}" aria-label="Glass ${i + 1}${i < n ? ', drunk' : ''}" aria-pressed="${i < n}"></button>`).join('')}</div>`;
+  }
+  $('#water-card').addEventListener('click', (e) => {
+    const g = e.target.closest('[data-glass]');
+    if (!g) return;
+    const k = todayKey();
+    const before = Number(state.water[k]) || 0;
+    const tapped = Number(g.dataset.glass);
+    const n = tapped === before ? tapped - 1 : tapped; // tap the last full glass to undo it
+    state.water[k] = n;
+    const cutoff = dateKey(addDays(new Date(), -90));
+    Object.keys(state.water).forEach((d) => { if (d < cutoff) delete state.water[d]; });
+    if (n >= WATER_GOAL && before < WATER_GOAL) { grow(1); celebrate(true); showToast('8 glasses today. Your body thanks you 💧'); }
+    save();
+    renderWater();
+  });
 
   /* ================= Swipe down to close pop-ups (like iPhone sheets) ================= */
   function enableSwipeClose(dlg) {
