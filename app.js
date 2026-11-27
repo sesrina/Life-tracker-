@@ -3265,10 +3265,10 @@
       ${verseOpen && VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
       <div class="verse-btns">
         ${VERSE_MEANINGS[ref] ? `<button class="link-btn" type="button" data-verse="meaning" aria-expanded="${verseOpen}">${verseOpen ? '💬 Hide meaning' : '💬 What it means'}</button>` : ''}
-        <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}">${saved ? '❤️ Favourite' : '🤍 Favourite'}</button>
+        <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}" aria-label="${saved ? 'Remove from favourites' : 'Add to favourites'}">${saved ? '❤️' : '🤍'}</button>
         <button class="link-btn" type="button" data-verse="speak" aria-label="Read aloud">🔊 Read</button>
         <button class="link-btn" type="button" data-verse="next">Another ➡️</button>
-        <button class="link-btn" type="button" data-verse="list">🤍 Favourites${state.verse.saved.length ? ` (${state.verse.saved.length})` : ''}</button>
+        <button class="link-btn" type="button" data-verse="list">📖 My favourites${state.verse.saved.length ? ` (${state.verse.saved.length})` : ''}</button>
       </div>`;
   }
 
@@ -3278,7 +3278,7 @@
       ? list.map(([ref, text]) => `<li><p class="verse-text">${verseHTML(text)}</p><p class="verse-ref">${esc(ref)} (KJV)</p>
           ${VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
           <button class="link-btn" type="button" data-unsave="${esc(ref)}">Remove</button></li>`).join('')
-      : '<li class="empty">No favourites yet. Tap 🤍 Favourite on a verse to keep it here.</li>';
+      : '<li class="empty">No favourites yet. Tap the 🤍 on a verse to keep it here.</li>';
   }
 
   const versesSheet = $('#verses-sheet');
