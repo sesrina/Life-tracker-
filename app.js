@@ -2941,10 +2941,48 @@
     const b = PROMPTS_YOU[(((n * 5 + 2) % PROMPTS_YOU.length) + PROMPTS_YOU.length) % PROMPTS_YOU.length];
     return [a, b];
   }
+  // Gentle prompts that fit each cycle phase (everyone is different, so these are just ideas)
+  const PHASE_PROMPTS = {
+    menstrual: [
+      'What does your body need most today: rest, warmth, food, or quiet?',
+      'What can you take off your plate this week so you can rest?',
+      'How are you feeling, honestly, today? No need to make it pretty.',
+      'What small comfort helped you today?',
+      'What would being gentle with yourself look like tomorrow?',
+    ],
+    follicular: [
+      'Your energy is often rising now. What new thing do you want to start?',
+      'What idea has been exciting you lately?',
+      'If you had a burst of motivation this week, where would you use it?',
+      'What is one goal step you could take while you feel fresh?',
+      'What would you like to plan or try for the first time?',
+    ],
+    ovulation: [
+      'Who would you love to connect with this week?',
+      'When did you feel most confident recently?',
+      'What conversation or plan have you been putting off that feels doable now?',
+      'What do you want to say yes to this week?',
+      'What made you feel good about yourself today?',
+    ],
+    luteal: [
+      'What is draining your energy right now, and what could you drop?',
+      'What helps you most when you feel moody or tired?',
+      'What do you need to say no to this week?',
+      'Are there any cravings or feelings showing up? What might they be telling you?',
+      'What can you prepare now to make next week feel easier?',
+    ],
+  };
   function renderPrompts(key) {
     const text = $('#journal-text').value;
-    $('#prompt-list').innerHTML = promptsFor(key, promptOffset).map((p) =>
-      `<button class="prompt-btn${text.includes(p) ? ' used' : ''}" type="button" data-prompt="${esc(p)}">${esc(p)}</button>`).join('');
+    const list = promptsFor(key, promptOffset).map((t) => ({ t, tag: '' }));
+    const ph = cycleModel(key).phaseFor(key);
+    if (ph && PHASE_PROMPTS[ph.phase]) {
+      const pool = PHASE_PROMPTS[ph.phase];
+      const n = Math.floor(parseKey(key).getTime() / 86400000) + promptOffset;
+      list[1] = { t: pool[((n % pool.length) + pool.length) % pool.length], tag: `${PHASES[ph.phase].emoji} ${PHASES[ph.phase].name} phase` };
+    }
+    $('#prompt-list').innerHTML = list.map((p) =>
+      `<button class="prompt-btn${text.includes(p.t) ? ' used' : ''}" type="button" data-prompt="${esc(p.t)}">${p.tag ? `<small class="prompt-tag">${esc(p.tag)}</small>` : ''}${esc(p.t)}</button>`).join('');
   }
   $('#prompt-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-prompt]');
