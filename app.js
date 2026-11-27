@@ -3265,10 +3265,10 @@
       ${verseOpen && VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
       <div class="verse-btns">
         ${VERSE_MEANINGS[ref] ? `<button class="link-btn" type="button" data-verse="meaning" aria-expanded="${verseOpen}">${verseOpen ? '💬 Hide meaning' : '💬 What it means'}</button>` : ''}
-        <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}">${saved ? '❤️ Saved' : '🤍 Save'}</button>
+        <button class="link-btn" type="button" data-verse="save" aria-pressed="${saved}">${saved ? '❤️ Favourite' : '🤍 Favourite'}</button>
         <button class="link-btn" type="button" data-verse="speak" aria-label="Read aloud">🔊 Read</button>
         <button class="link-btn" type="button" data-verse="next">Another ➡️</button>
-        ${state.verse.saved.length ? `<button class="link-btn" type="button" data-verse="list">📖 Saved (${state.verse.saved.length})</button>` : ''}
+        <button class="link-btn" type="button" data-verse="list">🤍 Favourites${state.verse.saved.length ? ` (${state.verse.saved.length})` : ''}</button>
       </div>`;
   }
 
@@ -3278,7 +3278,7 @@
       ? list.map(([ref, text]) => `<li><p class="verse-text">${verseHTML(text)}</p><p class="verse-ref">${esc(ref)} (KJV)</p>
           ${VERSE_MEANINGS[ref] ? `<p class="verse-meaning">💬 ${esc(VERSE_MEANINGS[ref])}</p>` : ''}
           <button class="link-btn" type="button" data-unsave="${esc(ref)}">Remove</button></li>`).join('')
-      : '<li class="empty">Tap 🤍 Save on a verse to keep it here.</li>';
+      : '<li class="empty">No favourites yet. Tap 🤍 Favourite on a verse to keep it here.</li>';
   }
 
   const versesSheet = $('#verses-sheet');
@@ -3295,7 +3295,7 @@
       state.verse.saved = has ? state.verse.saved.filter((r) => r !== ref) : [ref, ...state.verse.saved];
       save();
       renderVerse();
-      if (!has) showToast('Verse saved ❤️');
+      showToast(has ? 'Removed from favourites' : 'Added to your favourites ❤️');
     } else if (act === 'list') { renderSavedVerses(); versesSheet.showModal(); }
   });
   $('#verse-list').addEventListener('click', (e) => {
