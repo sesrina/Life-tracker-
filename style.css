@@ -682,6 +682,68 @@ html.themed .garden-card { background: linear-gradient(135deg, var(--card-a), va
 .meal-week-item { background: var(--peach); }
 #meal-title { white-space: pre-line; }
 
+/* ---------- Shortcut emblems on Today ---------- */
+.emblems {
+  display: flex;
+  gap: 4px;
+  margin: 14px -16px 0;
+  padding: 6px 16px 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.emblems::-webkit-scrollbar { display: none; }
+.emblem {
+  flex: none;
+  width: 76px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-weight: 700;
+  font-size: calc(13px * var(--fs, 1));
+  line-height: 1.2;
+  text-align: center;
+  scroll-snap-align: start;
+}
+.emblem-icon {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  box-shadow: var(--shadow), inset 0 0 0 2px var(--line);
+  font-size: calc(28px * var(--fs, 1));
+  transition: transform .15s;
+}
+.emblem.alert .emblem-icon { box-shadow: var(--shadow), inset 0 0 0 3px var(--accent); }
+.emblem:active .emblem-icon { transform: scale(0.9); }
+.emblem.pop .emblem-icon { animation: emblem-pop .35s ease; }
+@keyframes emblem-pop { 40% { transform: scale(1.15) rotate(-6deg); } 100% { transform: none; } }
+.emblem-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: calc(12px * var(--fs, 1));
+  font-weight: 800;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.emblem-badge.soft { background: var(--card); color: var(--ink); box-shadow: 0 0 0 2px var(--line); }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {
@@ -1479,7 +1541,7 @@ html.themed .tab.is-active, html.themed .btn-add { color: var(--accent-text, var
   :root { --bg: #fff; --card: #fff; --ink: #222; --muted: #555; --line: #ccc; }
   body { background: #fff; color: #222; font-size: calc(11px * var(--fs, 1)); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   *, *::before, *::after { animation: none !important; transition: none !important; box-shadow: none !important; }
-  .hello-card::before, .fab, .seg, .week-seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
+  .hello-card::before, .emblems, .fab, .seg, .week-seg, .eyebrow, .day-title, .tabbar, .toast, .settings-btn, .gsync, .week-nav .icon-btn, #week-today, .btn-add, .print-btn, dialog, .view:not(#view-week) { display: none !important; }
   .app { max-width: none; padding: 0; }
   .app-header { padding: 0 0 4px; }
   h1 { font-size: calc(20px * var(--fs, 1)); }

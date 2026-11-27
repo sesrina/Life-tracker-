@@ -601,7 +601,7 @@
     if (!events.length && !todos.length && !mealDay(key).d) lines = ['Nothing planned yet. Enjoy the calm 🍵'];
     else {
       lines = [
-        `🗓️ ${plural(events.length, 'event')}`,
+        events.length ? `🗓️ ${plural(events.length, 'event')}` : '🗓️ No events',
         todos.length ? `✅ ${done} of ${todos.length} to-dos done${done === todos.length ? ' 🎉' : ''}` : '✅ No to-dos',
       ];
     }
@@ -629,6 +629,7 @@
     renderSnack();
     renderGardenCard();
     renderHabitCard();
+    renderEmblems();
     $('#today-weekly').hidden = !!state.weekly[targetWeek()] || ![0, 1, 2].includes(now.getDay());
 
     // Evening mode: from 8 pm, show what's coming tomorrow
@@ -1934,7 +1935,7 @@
   /* ================= Friendly: welcome tour & one add button ================= */
   const TOUR = [
     { e: '👋', t: 'Welcome to your planner', x: 'Your day, goals, journal and cycle in one place. Everything is saved privately on this phone.', name: true },
-    { e: '🍒', t: 'Today', x: 'See what\'s next, your routine and your to-dos. Tick things off to grow your plant.' },
+    { e: '🍒', t: 'Today', x: 'See what\'s next, your routine and your to-dos. The round shortcuts near the top take you to every part of the planner. Swipe them sideways to see more.' },
     { e: '➕', t: 'Add anything with +', x: 'The pink + button at the bottom right adds a to-do, an event, a journal entry or a goal. Or use Brain dump to get everything out of your head at once.' },
     { e: '🎯', t: 'Plan ahead', x: 'Week shows the next 7 days. Goals breaks bigger plans into small steps.' },
     { e: '💜', t: 'Me', x: 'Your journal and cycle. You can lock them with a PIN in ⚙️ Settings, and make text bigger or easier to read there too. Tap 💡 to see why a feature helps.' },
@@ -2836,6 +2837,64 @@
   $('#meals-prev').addEventListener('click', () => { weekStart = addDays(weekStart, -7); render(); });
   $('#meals-next').addEventListener('click', () => { weekStart = addDays(weekStart, 7); render(); });
   $('#meals-today').addEventListener('click', () => { weekStart = startOfWeek(new Date()); render(); });
+
+  /* ================= Shortcut emblems on Today ================= */
+  function emblemData() {
+    const tk = todayKey();
+    const pendingTodos = todaysTodos().filter((t) => !t.done).length;
+    const habitsDone = state.habits.filter((h) => habitDone(h.id, tk)).length;
+    const plantsDue = state.plants.filter((p) => daysUntilWater(p) <= 0).length;
+    const eventsToday = dayEvents(tk).length;
+    const dinner = mealDay(tk).d;
+    const wroteToday = !!journalEntry(tk);
+    const weeklyDone = !!state.weekly[targetWeek()];
+    const ph = state.cycle.showOnToday ? cycleModel(tk).phaseFor(tk) : null;
+    return [
+      { go: 'todos', e: '✅', n: 'To-do', b: pendingTodos || '', alert: false, say: pendingTodos ? `${pendingTodos} left today` : '' },
+      { go: 'week', e: '🗓️', n: 'Week', b: eventsToday || '', soft: true, say: eventsToday ? `${plural(eventsToday, 'event')} today` : '' },
+      { go: 'month', e: '📅', n: 'Month' },
+      { go: 'meals', e: '🍽️', n: 'Meals', b: dinner ? '✓' : '', soft: true, say: dinner ? `Dinner: ${dinner}` : 'Dinner not planned' },
+      { go: 'habits', e: '✨', n: 'Habits', b: state.habits.length ? `${habitsDone}/${state.habits.length}` : '', soft: habitsDone === state.habits.length, say: state.habits.length ? `${habitsDone} of ${state.habits.length} done` : 'Not set up yet' },
+      { go: 'plants', e: '🪴', n: 'Plants', b: plantsDue ? `💧${plantsDue}` : '', alert: plantsDue > 0, say: plantsDue ? `${plantsDue} need water` : '' },
+      { go: 'goals', e: '💎', n: 'Goals', b: state.goals.length || '', soft: true, say: state.goals.length ? plural(state.goals.length, 'goal') : '' },
+      { go: 'journal', e: '📓', n: 'Journal', b: wroteToday ? '✓' : '', soft: true, say: wroteToday ? 'Written today' : '' },
+      { go: 'cycle', e: '🌙', n: 'Cycle', b: ph ? ph.day : '', soft: true, say: ph ? `Cycle day ${ph.day}` : '' },
+      { go: 'focus', e: '🎯', n: 'Focus' },
+      { go: 'dump', e: '🧠', n: 'Brain dump' },
+      { go: 'weekly', e: '🔄', n: 'Weekly reset', b: weeklyDone ? '✓' : '', soft: true, say: weeklyDone ? 'Done this week' : '' },
+      { go: 'settings', e: '⚙️', n: 'Settings' },
+    ];
+  }
+
+  function renderEmblems() {
+    $('#emblems').innerHTML = emblemData().map((x) => `<button class="emblem${x.alert ? ' alert' : ''}" type="button" data-go="${x.go}"
+      aria-label="${esc(x.n)}${x.say ? `: ${esc(x.say)}` : ''}">
+      <span class="emblem-icon" aria-hidden="true">${x.e}${x.b !== '' && x.b !== undefined ? `<span class="emblem-badge${x.soft ? ' soft' : ''}">${esc(String(x.b))}</span>` : ''}</span>
+      <span>${esc(x.n)}</span></button>`).join('');
+  }
+
+  function goTo(where) {
+    if (where === 'week' || where === 'month' || where === 'meals') {
+      weekMode = where;
+      weekStart = startOfWeek(new Date());
+      monthView = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      switchView('week');
+    } else if (['todos', 'goals', 'journal', 'cycle'].includes(where)) switchView(where);
+    else if (where === 'habits') openHabitSheet(!state.habits.length);
+    else if (where === 'plants') { if (state.plants.length) openGardenManager(); else openGardenEdit(null); }
+    else if (where === 'focus') openFocus('todo');
+    else if (where === 'dump') openDump();
+    else if (where === 'weekly') openWeekly();
+    else if (where === 'settings') openSettings();
+  }
+
+  $('#emblems').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-go]');
+    if (!b) return;
+    b.classList.add('pop');
+    try { if (navigator.vibrate) navigator.vibrate(10); } catch (err) { /* ignore */ }
+    setTimeout(() => goTo(b.dataset.go), 160); // let the little pop play first
+  });
 
   /* ================= Journal ================= */
   const MOODS = { 1: ['😞', 'Awful'], 2: ['😕', 'Meh'], 3: ['😐', 'Okay'], 4: ['🙂', 'Good'], 5: ['😄', 'Great'] };
