@@ -1118,6 +1118,75 @@ html.font-verdana .verse-text, html.font-atkinson .verse-text { font-family: inh
 .garden-photo.big { height: 112px; }
 :root[data-look="clean"] .section-head h2 { border-left: none; border-radius: 99px; padding: 4px 16px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vic-gold) 45%, transparent); }
 
+/* ---------- Cherry: sultry oxblood, black and gold, with leopard borders ---------- */
+html:root[data-look="cherry"] {
+  color-scheme: dark;
+  --leopard: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Crect width='60' height='60' fill='%23c99556'/%3E%3Cg transform='translate(12 14) rotate(-10) scale(1.0)'%3E%3Cellipse cx='0' cy='0' rx='4.6' ry='3.6' fill='%237a4a22'/%3E%3Cpath d='M-5.5 -1.5 A6 4.8 0 0 1 2 -5.2' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M5.8 1 A6 4.8 0 0 1 -1.5 5.4' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='-4' r='1.1' fill='%231c0e08'/%3E%3C/g%3E%3Cg transform='translate(44 12) rotate(20) scale(0.9)'%3E%3Cellipse cx='0' cy='0' rx='4.6' ry='3.6' fill='%237a4a22'/%3E%3Cpath d='M-5.5 -1.5 A6 4.8 0 0 1 2 -5.2' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M5.8 1 A6 4.8 0 0 1 -1.5 5.4' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='-4' r='1.1' fill='%231c0e08'/%3E%3C/g%3E%3Cg transform='translate(28 40) rotate(5) scale(1.1)'%3E%3Cellipse cx='0' cy='0' rx='4.6' ry='3.6' fill='%237a4a22'/%3E%3Cpath d='M-5.5 -1.5 A6 4.8 0 0 1 2 -5.2' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M5.8 1 A6 4.8 0 0 1 -1.5 5.4' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='-4' r='1.1' fill='%231c0e08'/%3E%3C/g%3E%3Cg transform='translate(54 46) rotate(-25) scale(0.85)'%3E%3Cellipse cx='0' cy='0' rx='4.6' ry='3.6' fill='%237a4a22'/%3E%3Cpath d='M-5.5 -1.5 A6 4.8 0 0 1 2 -5.2' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M5.8 1 A6 4.8 0 0 1 -1.5 5.4' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='-4' r='1.1' fill='%231c0e08'/%3E%3C/g%3E%3Cg transform='translate(8 52) rotate(30) scale(0.8)'%3E%3Cellipse cx='0' cy='0' rx='4.6' ry='3.6' fill='%237a4a22'/%3E%3Cpath d='M-5.5 -1.5 A6 4.8 0 0 1 2 -5.2' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Cpath d='M5.8 1 A6 4.8 0 0 1 -1.5 5.4' fill='none' stroke='%231c0e08' stroke-width='3.6' stroke-linecap='round'/%3E%3Ccircle cx='5' cy='-4' r='1.1' fill='%231c0e08'/%3E%3C/g%3E%3Ccircle cx='25' cy='6' r='2.3' fill='%231c0e08'/%3E%3Ccircle cx='52' cy='30' r='2.3' fill='%231c0e08'/%3E%3Ccircle cx='6' cy='40' r='2.3' fill='%231c0e08'/%3E%3Ccircle cx='38' cy='52' r='2.3' fill='%231c0e08'/%3E%3Ccircle cx='30' cy='28' r='2.3' fill='%231c0e08'/%3E%3C/svg%3E");
+  --bg: #320f18; --card: #431a25; --ink: #f7e9e4; --muted: #d2b3b2; --line: #5a2733;
+  --accent: #f06a82; --accent-ink: #1a0a0d; --accent-soft: #55202d; --accent-text: #f7e9e4;
+  --danger: #ef6a80; --danger-soft: #3d1a22;
+  --shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  --pink: #66243a; --lavender: #4f2638; --mint: #4c3a26; --peach: #5f3426; --sky: #453a48; --butter: #5c4a22;
+  --rose: #c9334f; --rose-soft: #3a1720; --fertile: #4a3d26; --ch-mood: #e0789c;
+  --card-a: #4f1c2a; --card-b: #3f1621;
+  --hero-bg: linear-gradient(150deg, #050203 0%, #3a0812 55%, #6e0c1f 100%);
+  --hero-ink: #fbefe9; --hero-muted: #e3c7bf;
+  --hero-track: rgba(255, 255, 255, 0.14); --hero-bar: linear-gradient(90deg, #c9a15a, #f3dca0); --hero-chip: rgba(255, 255, 255, 0.07);
+  --night-bg: linear-gradient(135deg, #070304, #3a0a15); --night-ink: #fbefe9; --night-muted: #e3c7bf; --night-link: #f4c7cf;
+  --trim-h: 0px;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 60 60'%3E%3Cg opacity='0.035' stroke='%23e7b980' fill='none' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 12 A6 4.8 0 0 1 14 8.6'/%3E%3Cpath d='M18 16 A6 4.8 0 0 1 10 19'/%3E%3Cpath d='M38 10 A6 4.8 0 0 1 46 7'/%3E%3Cpath d='M50 14 A6 4.8 0 0 1 42 17'/%3E%3Cpath d='M22 38 A6 4.8 0 0 1 30 34.6'/%3E%3Cpath d='M34 42 A6 4.8 0 0 1 26 45'/%3E%3Cpath d='M48 46 A6 4.8 0 0 1 56 43'/%3E%3C/g%3E%3Cg opacity='0.035' fill='%23e7b980'%3E%3Ccircle cx='26' cy='6' r='1.4'/%3E%3Ccircle cx='52' cy='30' r='1.2'/%3E%3Ccircle cx='6' cy='40' r='1.3'/%3E%3C/g%3E%3C/svg%3E");
+  --tape: var(--leopard);
+  --grid: rgba(231, 185, 128, 0.05);
+  --vic-gold: #d4af6a; --vic-hero: #d9b26a;
+}
+html:root[data-look="cherry"] body { background-color: var(--bg); color: var(--ink); }
+
+/* leopard frames: the print shows as a border around the card, never behind words */
+html.themed[data-look="cherry"] .hello-card {
+  border: 9px solid transparent;
+  background: var(--hero-bg) padding-box, var(--leopard) border-box;
+  background-size: auto, 26px 26px;
+}
+html.themed[data-look="cherry"] .verse-card {
+  border: 8px solid transparent;
+  background: linear-gradient(150deg, #3f1520, #5c1a2a) padding-box, var(--leopard) border-box;
+  background-size: auto, 24px 24px;
+}
+html.themed[data-look="cherry"] .routine-card,
+html.themed[data-look="cherry"] .routine-card.is-night {
+  border: 8px solid transparent;
+  background: linear-gradient(150deg, #36121c, #521626) padding-box, var(--leopard) border-box;
+  background-size: auto, 24px 24px;
+  color: var(--ink);
+}
+html[data-look="cherry"] .emblem-icon {
+  border: 3px solid transparent;
+  border-width: 4px;
+  background: linear-gradient(var(--card), var(--card)) padding-box, var(--leopard) border-box;
+  background-size: auto, 18px 18px;
+  box-shadow: var(--shadow);
+}
+html[data-look="cherry"] .fab {
+  border: 4px solid transparent;
+  background: linear-gradient(#b3122d, #8a0d22) padding-box, var(--leopard) border-box;
+  background-size: auto, 18px 18px;
+  color: #fff;
+}
+html[data-look="cherry"] .tabbar { border-top: none; background: color-mix(in srgb, #24090f 94%, transparent); }
+html[data-look="cherry"] .tabbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: var(--leopard);
+  background-size: 22px 22px;
+}
+html[data-look="cherry"] .note-card { background: #f1e2c6; color: #2a1418; }
+html[data-look="cherry"] .note-label { color: #6e4a3e; }
+html[data-look="cherry"] h1 { letter-spacing: 0.5px; }
+
 /* ---------- Journal ---------- */
 .journal-prompt { margin-top: 12px; }
 .journal-card {

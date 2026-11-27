@@ -2056,7 +2056,7 @@
 
   // Looks: colours, heading font, tab icons and confetti for each aesthetic
   const LOOKS = {
-    cherry: { bg: '#f7f1ec', font: 'Playfair+Display:wght@700;800', icons: ['🍒', '💎', '💋'], confetti: ['🍒', '💋', '✨', '🎀', '💎'] },
+    cherry: { bg: '#320f18', font: 'Playfair+Display:wght@700;800', icons: ['🍒', '💎', '💋'], confetti: ['🍒', '💋', '✨', '🎀', '💎'] },
     soft: { bg: '#fde8ef', font: '', icons: ['🌼', '🎯', '💜'], confetti: ['✨', '💖', '🌸', '⭐', '🎉'] },
     clean: { bg: '#f6f2ec', font: 'DM+Serif+Display', icons: ['☕', '🤍', '🕊️'], confetti: ['🤍', '✨', '☕', '🕊️', '🌾'] },
     matcha: { bg: '#f2f4ec', font: '', icons: ['🍵', '🌿', '🌱'], confetti: ['🍵', '🌿', '✨', '🍃', '🌼'] },
